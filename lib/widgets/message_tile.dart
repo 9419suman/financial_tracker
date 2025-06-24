@@ -90,17 +90,59 @@ class MessageTile extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade100,
+                        color: message.transactionType.toLowerCase() == 'credit' 
+                            ? Colors.green.shade100 
+                            : Colors.red.shade100,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         message.formattedAmount ?? '',
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.bold,
-                          color: Colors.green.shade800,
+                          color: message.transactionType.toLowerCase() == 'credit' 
+                              ? Colors.green.shade800 
+                              : Colors.red.shade800,
                         ),
                       ),
                     ),
+                  ),
+                ],
+                if (message.isTransaction && message.category != 'NA') ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        _getCategoryIcon(message.category),
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        message.category,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (message.transactionType != 'NA') 
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            message.transactionType,
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ],
@@ -109,5 +151,29 @@ class MessageTile extends StatelessWidget {
         ),
       ),
     );
+  }
+  
+  IconData _getCategoryIcon(String category) {
+    final lowerCategory = category.toLowerCase();
+    
+    if (lowerCategory.contains('food') || lowerCategory.contains('restaurant') || lowerCategory.contains('dining')) {
+      return Icons.restaurant;
+    } else if (lowerCategory.contains('shopping') || lowerCategory.contains('purchase')) {
+      return Icons.shopping_bag;
+    } else if (lowerCategory.contains('travel') || lowerCategory.contains('transport')) {
+      return Icons.directions_car;
+    } else if (lowerCategory.contains('entertainment')) {
+      return Icons.movie;
+    } else if (lowerCategory.contains('health') || lowerCategory.contains('medical')) {
+      return Icons.medical_services;
+    } else if (lowerCategory.contains('utility') || lowerCategory.contains('bill')) {
+      return Icons.receipt;
+    } else if (lowerCategory.contains('salary') || lowerCategory.contains('income')) {
+      return Icons.account_balance_wallet;
+    } else if (lowerCategory.contains('transfer')) {
+      return Icons.swap_horiz;
+    } else {
+      return Icons.category;
+    }
   }
 }

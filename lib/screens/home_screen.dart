@@ -144,7 +144,6 @@ class _HomeScreenState extends State<HomeScreen> {
       provider.setSelectedDate(picked);
     }
   }
-
   Widget _buildFilterBar(BuildContext context) {
     final provider = Provider.of<MessageProvider>(context);
     
@@ -153,34 +152,51 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              'Filter Messages',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.bold,
-              ),
+          Text(
+            'Filter Messages',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold,
             ),
           ),
-          ChoiceChip(
-            label: Text('All Messages'),
-            selected: provider.currentFilter == MessageFilter.all,
-            onSelected: (selected) {
-              if (selected) {
-                provider.setFilter(MessageFilter.all);
-              }
-            },
-          ),
-          const SizedBox(width: 8),
-          ChoiceChip(
-            label: Text('With Amount'),
-            selected: provider.currentFilter == MessageFilter.withAmount,
-            onSelected: (selected) {
-              if (selected) {
-                provider.setFilter(MessageFilter.withAmount);
-              }
-            },
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ChoiceChip(
+                  label: Text('All Messages'),
+                  selected: provider.currentFilter == MessageFilter.all,
+                  onSelected: (selected) {
+                    if (selected) {
+                      provider.setFilter(MessageFilter.all);
+                    }
+                  },
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: Text('With Amount'),
+                  selected: provider.currentFilter == MessageFilter.withAmount,
+                  onSelected: (selected) {
+                    if (selected) {
+                      provider.setFilter(MessageFilter.withAmount);
+                    }
+                  },
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: Text('Bank Transactions'),
+                  selected: provider.currentFilter == MessageFilter.bankTransactions,
+                  onSelected: (selected) {
+                    if (selected) {
+                      provider.setFilter(MessageFilter.bankTransactions);
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
         ],
       ),

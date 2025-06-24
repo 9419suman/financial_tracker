@@ -2,6 +2,8 @@
     <!-- SMS Permissions -->
     <uses-permission android:name="android.permission.READ_SMS"/>
     <uses-permission android:name="android.permission.RECEIVE_SMS"/>
+    <!-- Internet Permission for Gemini API -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     
     <application
         android:label="Financial Tracker"
