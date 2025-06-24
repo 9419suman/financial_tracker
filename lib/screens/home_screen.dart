@@ -32,13 +32,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(      appBar: AppBar(
-        title: Text(
-          'Financial Tracker',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+  Widget build(BuildContext context) {    return Scaffold(
+      appBar: AppBar(
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            'Financial Tracker',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
         ),
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -80,7 +83,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
   Widget _buildDateFilter(BuildContext context) {
     final provider = Provider.of<MessageProvider>(context);
     final dateFormat = DateFormat('MMM dd, yyyy');
@@ -104,29 +106,37 @@ class _HomeScreenState extends State<HomeScreen> {
             color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(width: 12),
-          Text(
-            'Show messages from:',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w500,
+          // Wrap the label text in a Flexible widget to prevent overflow
+          Flexible(
+            flex: 2,
+            child: Text(
+              'Show messages from:',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
+            flex: 3,
             child: InkWell(
               onTap: () => _selectDate(context),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      dateFormat.format(provider.selectedDate),
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w500,
+                    Flexible(
+                      child: Text(
+                        dateFormat.format(provider.selectedDate),
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     Icon(
@@ -195,8 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
-  }
-  Widget _buildFilterBar(BuildContext context) {
+  }  Widget _buildFilterBar(BuildContext context) {
     final provider = Provider.of<MessageProvider>(context);
     
     return Container(
@@ -207,17 +216,24 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Filter Messages',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  'Filter Messages',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: [                ChoiceChip(
+              children: [ChoiceChip(
                   label: Text('All Messages'),
                   selected: provider.currentFilter == MessageFilter.all,
                   onSelected: (selected) {
