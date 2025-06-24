@@ -4,8 +4,7 @@ import '../services/sms_service.dart';
 
 enum MessageFilter {
   all,
-  withAmount,
-  bankTransactions, // New filter for bank transactions
+  bankTransactions, // Filter for bank transactions
 }
 
 class MessageProvider extends ChangeNotifier {
@@ -16,8 +15,8 @@ class MessageProvider extends ChangeNotifier {
   bool _isLoading = false;
   String _searchQuery = '';
   MessageFilter _currentFilter = MessageFilter.all;
-  DateTime _selectedDate = DateTime(2025, 6, 1); // Default date: June 1, 2025
-  
+  DateTime _selectedDate = DateTime(2025, 6, 22); // Default date: June 22, 2025
+
   // Getters
   List<MessageWithAmount> get messages => _filteredMessages;
   bool get isLoading => _isLoading;
@@ -100,8 +99,7 @@ class MessageProvider extends ChangeNotifier {
     // Start with all messages
     _filteredMessages = List.from(_messages);
     print("🔍 MESSAGE_PROVIDER: Starting with ${_filteredMessages.length} messages");
-      
-    // Apply search filter if there's a query
+        // Apply search filter if there's a query
     if (_searchQuery.isNotEmpty) {
       _filteredMessages = _filteredMessages.where((message) {
         final bool bodyContains = message.message.body?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false;
@@ -112,11 +110,8 @@ class MessageProvider extends ChangeNotifier {
       print("🔍 MESSAGE_PROVIDER: After search filter: ${_filteredMessages.length} messages");
     }
     
-    // Apply filters
-    if (_currentFilter == MessageFilter.withAmount) {
-      _filteredMessages = _smsService.getMessagesWithAmounts(_filteredMessages);
-      print("🔍 MESSAGE_PROVIDER: After amount filter: ${_filteredMessages.length} messages");
-    } else if (_currentFilter == MessageFilter.bankTransactions) {
+    // Apply filter for bank transactions only
+    if (_currentFilter == MessageFilter.bankTransactions) {
       _filteredMessages = _smsService.getBankTransactions(_filteredMessages);
       print("🔍 MESSAGE_PROVIDER: After bank transactions filter: ${_filteredMessages.length} messages");
     }

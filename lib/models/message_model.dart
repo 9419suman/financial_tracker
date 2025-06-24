@@ -27,45 +27,13 @@ class MessageWithAmount {
     this.category = 'NA',
     this.description = 'NA',
   });
-
   // Factory method to create a MessageWithAmount from an SmsMessage
   factory MessageWithAmount.fromSmsMessage(SmsMessage message) {
-    // Extract amount using regex for common patterns like Rs. 1,234.56 or $1,234.56
-    final RegExp amountRegex = RegExp(
-      r'(?:Rs\.?|INR|₹|\$)?\s?(\d{1,3}(,\d{3})*(\.\d{1,2})?)',
-      caseSensitive: false,
-    );
-    
-    String? extractedAmountText = "";
-    double? amount;
-    
-    final match = amountRegex.firstMatch(message.body ?? "");
-    if (match != null) {
-      extractedAmountText = match.group(0) ?? "";
-      // Clean up the amount string and convert to double
-      String cleanAmount = match.group(1)?.replaceAll(',', '') ?? "";
-      try {
-        amount = double.parse(cleanAmount);
-      } catch (e) {
-        amount = null;
-      }
-    }
-    
-    // Format the amount with a currency symbol if it exists
-    String? formattedAmount;
-    if (amount != null) {
-      final formatter = NumberFormat.currency(
-        symbol: '₹',
-        decimalDigits: 2,
-      );
-      formattedAmount = formatter.format(amount);
-    }
-    
     return MessageWithAmount(
       message: message,
-      amount: amount,
-      formattedAmount: formattedAmount,
-      extractedAmountText: extractedAmountText,
+      amount: null,
+      formattedAmount: null,
+      extractedAmountText: "",
     );
   }
     // Create a MessageWithAmount from Gemini API response

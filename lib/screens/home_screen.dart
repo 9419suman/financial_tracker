@@ -165,23 +165,12 @@ class _HomeScreenState extends State<HomeScreen> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: [
-                ChoiceChip(
+              children: [                ChoiceChip(
                   label: Text('All Messages'),
                   selected: provider.currentFilter == MessageFilter.all,
                   onSelected: (selected) {
                     if (selected) {
                       provider.setFilter(MessageFilter.all);
-                    }
-                  },
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: Text('With Amount'),
-                  selected: provider.currentFilter == MessageFilter.withAmount,
-                  onSelected: (selected) {
-                    if (selected) {
-                      provider.setFilter(MessageFilter.withAmount);
                     }
                   },
                 ),
@@ -252,8 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
               size: 64,
               color: Colors.grey.shade400,
             ),
-            const SizedBox(height: 16),
-            Text(
+            const SizedBox(height: 16),            Text(
               'No messages found',
               style: GoogleFonts.poppins(
                 fontSize: 18,
@@ -261,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            if (provider.currentFilter == MessageFilter.withAmount)
+            if (provider.currentFilter == MessageFilter.bankTransactions)
               Text(
                 'Try changing the filter to "All Messages"',
                 style: GoogleFonts.poppins(
