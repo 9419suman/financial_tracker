@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import '../models/message_model.dart';
 
 class CacheService {
@@ -92,88 +91,46 @@ class CacheService {
       return false;
     }
   }
-    // Get cached messages
-  Future<List<MessageWithAmount>> getCachedMessages() async {
+  // Get cached messages as plain JSON/dict objects
+  Future<List<Map<String, dynamic>>> getCachedMessages() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       
       // Get cached data
       final List<String>? jsonMessages = prefs.getStringList(_cacheKey);
-        if (jsonMessages == null || jsonMessages.isEmpty) {
+      if (jsonMessages == null || jsonMessages.isEmpty) {
         print('💾 CACHE_SERVICE: No cached messages found');
         return [];
       }
       
       print('💾 CACHE_SERVICE: Found ${jsonMessages.length} cached message entries');
       
-      // Convert JSON to MessageWithAmount objects
-      final List<MessageWithAmount> messages = [];
+      // Convert JSON strings to Map objects
+      final List<Map<String, dynamic>> messages = [];
       
       for (String jsonString in jsonMessages) {
         try {
           final Map<String, dynamic> data = jsonDecode(jsonString);
-            // Create SmsMessage object with proper type handling
-          // Make sure the id is properly parsed as an integer which SmsMessage expects
-          int messageId;
-          try {
-            messageId = int.parse(data['message_id'].toString());
-            print('💾 CACHE_SERVICE DEBUGGING: data[\'message_id\']: ${data['message_id'].toString()}, messageId: $messageId');
-          } catch (e) {
-            print('💾 CACHE_SERVICE: ⚠️ Error parsing message_id: ${data['message_id']}. Using 0 as fallback.');
-            messageId = 0;
-          }
           
-          // Ensure dates are properly parsed as integers
-          int messageDate;
-          try {
-            if (data['message_date'] != null) {
-              messageDate = data['message_date'] is int 
-                  ? data['message_date'] 
-                  : int.parse(data['message_date'].toString());
-            } else {
-              messageDate = DateTime.now().millisecondsSinceEpoch;
-            }
-          } catch (e) {
-            print('💾 CACHE_SERVICE: ⚠️ Error parsing message_date: ${data['message_date']}. Using current time as fallback.');
-            messageDate = DateTime.now().millisecondsSinceEpoch;
-          }
+          // Print the message ID for debugging
+          final String messageId = data['message_id']?.toString() ?? '';
+          final String messagePreview = data['message_body'] != null 
+              ? (data['message_body'].toString().length > 30 
+                  ? data['message_body'].toString().substring(0, 30) + "..." 
+                  : data['message_body'].toString())
+              : "[no body]";
           
-          final smsMessage = SmsMessage.fromJson({
-            'id': messageId,
-            'address': data['message_sender'] ?? '',
-            'body': data['message_body'] ?? '',
-            'date': messageDate,
-            'dateSent': messageDate,
-          });
-
-          // Print to verify the ID in the created SmsMessage object
-          print('💾 CACHE_SERVICE DEBUGGING: Created SmsMessage with ID: ${smsMessage.id}');
-                    
-          // Create MessageWithAmount object
-          final messageWithAmount = MessageWithAmount(
-            message: smsMessage,
-            amount: data['amount'],
-            formattedAmount: data['formatted_amount'],
-            extractedAmountText: data['extracted_amount_text'] ?? '',
-            isTransaction: data['is_transaction'] ?? false,
-            transactionDate: data['transaction_date'] ?? 'NA',
-            transactionType: data['transaction_type'] ?? 'NA',
-            toAccount: data['to_account'] ?? 'NA',
-            category: data['category'] ?? 'NA',
-            description: data['description'] ?? 'NA',
-          );
-
-          // Print to verify the ID in the MessageWithAmount object
-          print('💾 CACHE_SERVICE DEBUGGING: Added MessageWithAmount with ID: ${messageWithAmount.message.id}');
-
-          messages.add(messageWithAmount);
+          print('💾 CACHE_SERVICE: Retrieved cached message ID: $messageId (Preview: $messagePreview)');
+          
+          // Add the raw data dictionary to our list
+          messages.add(data);
         } catch (e) {
           print('💾 CACHE_SERVICE: ❌ Error parsing cached message: $e');
           // Continue with next message
         }
       }
       
-      print('💾 CACHE_SERVICE: Retrieved ${messages.length} messages from cache');
+      print('💾 CACHE_SERVICE: Retrieved ${messages.length} message dictionaries from cache');
       return messages;
     } catch (e) {
       print('💾 CACHE_SERVICE: ❌ Error retrieving from cache: $e');

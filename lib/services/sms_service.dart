@@ -53,31 +53,32 @@ class SmsService {
     try {
       print("📱 SMS_SERVICE: Starting processing for ${messages.length} messages");
       
-      // First, try to get cached messages
-      List<MessageWithAmount> cachedMessages = [];
+      // First, try to get cached messages as dictionaries
+      List<Map<String, dynamic>> cachedMessageDicts = [];
       try {
-        cachedMessages = await _cacheService.getCachedMessages();
-        print("📱 SMS_SERVICE: Retrieved ${cachedMessages.length} messages from cache");
+        cachedMessageDicts = await _cacheService.getCachedMessages();
+        print("📱 SMS_SERVICE: Retrieved ${cachedMessageDicts.length} message dictionaries from cache");
       } catch (e) {
         print("📱 SMS_SERVICE: ❌ Error retrieving cached messages: $e");
         // Continue with an empty cache if there's an error
-        cachedMessages = [];
+        cachedMessageDicts = [];
       }
         
       // Create a map for faster lookup of cached messages by ID
-      final Map<String, MessageWithAmount> cachedMessagesMap = {};
-      for (var message in cachedMessages) {
-        final String msgId = message.message.id.toString();
-        print("📱 SMS_SERVICE: Caching message: ${message.message.id}");
-        cachedMessagesMap[msgId] = message;
-        
-        // Enhanced debug log to see what's in the cache with more details
-        final String msgPreview = message.message.body != null 
-            ? (message.message.body!.length > 30 
-                ? message.message.body!.substring(0, 30) + "..." 
-                : message.message.body!)
-            : "[no body]";
-        print("📱 SMS_SERVICE: Cached message ID: $msgId (Preview: $msgPreview)");
+      final Map<String, Map<String, dynamic>> cachedMessagesMap = {};
+      for (var messageDict in cachedMessageDicts) {
+        final String msgId = messageDict['message_id']?.toString() ?? '';
+        if (msgId.isNotEmpty) {
+          cachedMessagesMap[msgId] = messageDict;
+          
+          // Enhanced debug log to see what's in the cache with more details
+          final String msgPreview = messageDict['message_body'] != null 
+              ? (messageDict['message_body'].toString().length > 30 
+                  ? messageDict['message_body'].toString().substring(0, 30) + "..." 
+                  : messageDict['message_body'].toString())
+              : "[no body]";
+          print("📱 SMS_SERVICE: Cached message ID: $msgId (Preview: $msgPreview)");
+        }
       }
       
       // Create lists for cached and non-cached messages
@@ -95,12 +96,60 @@ class SmsService {
         
         // Debug to see what we're checking
         print("📱 SMS_SERVICE: Checking if message ID $msgId is in cache (Preview: $msgPreview)");
-        // print('Keys: ${cachedMessagesMap.keys.toList()}, Current msgId: $msgId');
-        // Check if this message is in cache by ID (using map for faster lookup)
+        
+        // Check if this message is in cache by ID
         if (cachedMessagesMap.containsKey(msgId)) {
-          // If it's in cache, use the cached version
+          // If it's in cache, convert the cached dictionary to MessageWithAmount
           print("📱 SMS_SERVICE: Found message $msgId in cache");
-          processedMessages.add(cachedMessagesMap[msgId]!);
+          
+          final cachedDict = cachedMessagesMap[msgId]!;
+          
+          // Create an SmsMessage from the cached data
+          int messageDate;
+          try {
+            if (cachedDict['message_date'] != null) {
+              messageDate = cachedDict['message_date'] is int 
+                  ? cachedDict['message_date'] 
+                  : int.parse(cachedDict['message_date'].toString());
+            } else {
+              messageDate = DateTime.now().millisecondsSinceEpoch;
+            }
+          } catch (e) {
+            print('📱 SMS_SERVICE: ⚠️ Error parsing message_date. Using current time as fallback.');
+            messageDate = DateTime.now().millisecondsSinceEpoch;
+          }
+          
+          int messageId;
+          try {
+            messageId = int.parse(cachedDict['message_id'].toString());
+          } catch (e) {
+            print('📱 SMS_SERVICE: ⚠️ Error parsing message_id. Using original message ID as fallback.');
+            messageId = message.message.id ?? 0;
+          }
+          
+          final smsMessage = SmsMessage.fromJson({
+            'id': messageId,
+            'address': cachedDict['message_sender'] ?? '',
+            'body': cachedDict['message_body'] ?? '',
+            'date': messageDate,
+            'dateSent': messageDate,
+          });
+          
+          // Create MessageWithAmount from cached data
+          final cachedMessage = MessageWithAmount(
+            message: smsMessage,
+            amount: cachedDict['amount'],
+            formattedAmount: cachedDict['formatted_amount'],
+            extractedAmountText: cachedDict['extracted_amount_text'] ?? '',
+            isTransaction: cachedDict['is_transaction'] ?? false,
+            transactionDate: cachedDict['transaction_date'] ?? 'NA',
+            transactionType: cachedDict['transaction_type'] ?? 'NA',
+            toAccount: cachedDict['to_account'] ?? 'NA',
+            category: cachedDict['category'] ?? 'NA',
+            description: cachedDict['description'] ?? 'NA',
+          );
+          
+          processedMessages.add(cachedMessage);
         } else {
           // If not in cache, add to list for processing
           print("📱 SMS_SERVICE: Message $msgId not in cache, will process");
@@ -115,8 +164,7 @@ class SmsService {
         print("📱 SMS_SERVICE: All messages found in cache, no Gemini API call needed");
         return processedMessages;
       }
-      
-      // Process only the messages that weren't in cache
+        // Process only the messages that weren't in cache
       print("📱 SMS_SERVICE: Processing ${messagesToProcess.length} messages with Gemini");
       
       // Create array of message bodies for messages that need processing
@@ -183,8 +231,8 @@ Ensure that the order of structured output matches the order of array input for 
         }
         
         // Verify cache was updated
-        final updatedCachedMessages = await _cacheService.getCachedMessages();
-        print("📱 SMS_SERVICE: ✅ Cache now contains ${updatedCachedMessages.length} messages total (was ${cachedMessages.length} before)");
+        final updatedCachedDicts = await _cacheService.getCachedMessages();
+        print("📱 SMS_SERVICE: ✅ Cache now contains ${updatedCachedDicts.length} messages total (was ${cachedMessageDicts.length} before)");
         
         // Combine cached and newly processed messages
         final allProcessedMessages = [...processedMessages, ...newlyProcessedMessages];
