@@ -1,0 +1,239 @@
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
+import '../models/message_model.dart';
+
+class CacheService {
+  static const String _cacheKey = 'processed_messages_cache';  // Save processed messages to cache
+  Future<bool> saveProcessedMessages(List<MessageWithAmount> messages) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Get existing messages
+      final List<String> existingJsonMessages = prefs.getStringList(_cacheKey) ?? [];
+      print('💾 CACHE_SERVICE: Found ${existingJsonMessages.length} existing cached messages');
+      
+      // Create a map of existing message IDs for quick lookup
+      final Map<String, String> existingMessageMap = {};
+      for (String jsonString in existingJsonMessages) {
+        try {
+          final Map<String, dynamic> data = jsonDecode(jsonString);
+          final String id = (data['message_id'] ?? '').toString();
+          if (id.isNotEmpty) {
+            existingMessageMap[id] = jsonString;
+            print('💾 CACHE_SERVICE: Existing message ID in cache: $id');
+          }
+        } catch (e) {
+          // Skip invalid entries
+          print('💾 CACHE_SERVICE: ⚠️ Skipping invalid cache entry: $e');
+        }
+      }
+      
+      // Convert new messages to JSON and add to existing if not already present
+      int newMessagesCount = 0;
+      int skippedMessagesCount = 0;
+      List<String> updatedMessages = [];
+      
+      // First add all existing messages to our updated list
+      updatedMessages.addAll(existingMessageMap.values);
+      print('💾 CACHE_SERVICE: Added ${existingMessageMap.values.length} existing messages to updated list');
+      
+      for (var message in messages) {
+        final String messageId = message.message.id.toString();
+        final String messagePreview = message.message.body != null 
+            ? (message.message.body!.length > 30 
+                ? message.message.body!.substring(0, 30) + "..." 
+                : message.message.body!)
+            : "[no body]";
+        
+        print('💾 CACHE_SERVICE: Processing message with ID: $messageId (Preview: $messagePreview)');
+        
+        // Skip if already in cache
+        if (existingMessageMap.containsKey(messageId)) {
+          print('💾 CACHE_SERVICE: Skipping already cached message ID: $messageId');
+          skippedMessagesCount++;
+          continue;
+        }
+        
+        // Create a map with all the data we want to cache
+        final Map<String, dynamic> data = {
+          'message_id': messageId,
+          'message_body': message.message.body,
+          'message_sender': message.message.sender,
+          'message_date': message.message.date?.millisecondsSinceEpoch,
+          'amount': message.amount,
+          'formatted_amount': message.formattedAmount,
+          'extracted_amount_text': message.extractedAmountText,
+          'is_transaction': message.isTransaction,
+          'transaction_date': message.transactionDate,
+          'transaction_type': message.transactionType,
+          'to_account': message.toAccount,
+          'category': message.category,
+          'description': message.description,
+        };
+        
+        final String jsonString = jsonEncode(data);
+        updatedMessages.add(jsonString);
+        print('💾 CACHE_SERVICE: Added new message ID to cache: $messageId (Preview: $messagePreview)');
+        newMessagesCount++;
+      }
+      
+      // Save to SharedPreferences
+      await prefs.setStringList(_cacheKey, updatedMessages);
+      print('💾 CACHE_SERVICE: Added $newMessagesCount new messages to cache, skipped $skippedMessagesCount, total now ${updatedMessages.length}');
+      
+      // Verify that the messages were saved correctly
+      final List<String>? verifyJsonMessages = prefs.getStringList(_cacheKey);
+      print('💾 CACHE_SERVICE: Verified cache now has ${verifyJsonMessages?.length ?? 0} messages');
+      
+      return true;
+    } catch (e) {
+      print('💾 CACHE_SERVICE: ❌ Error saving to cache: $e');
+      return false;
+    }
+  }
+    // Get cached messages
+  Future<List<MessageWithAmount>> getCachedMessages() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Get cached data
+      final List<String>? jsonMessages = prefs.getStringList(_cacheKey);
+        if (jsonMessages == null || jsonMessages.isEmpty) {
+        print('💾 CACHE_SERVICE: No cached messages found');
+        return [];
+      }
+      
+      print('💾 CACHE_SERVICE: Found ${jsonMessages.length} cached message entries');
+      
+      // Convert JSON to MessageWithAmount objects
+      final List<MessageWithAmount> messages = [];
+      
+      for (String jsonString in jsonMessages) {
+        try {
+          final Map<String, dynamic> data = jsonDecode(jsonString);
+            // Create SmsMessage object with proper type handling
+          // Make sure the id is properly parsed as an integer which SmsMessage expects
+          int messageId;
+          try {
+            messageId = int.parse(data['message_id'].toString());
+            print('💾 CACHE_SERVICE DEBUGGING: data[\'message_id\']: ${data['message_id'].toString()}, messageId: $messageId');
+          } catch (e) {
+            print('💾 CACHE_SERVICE: ⚠️ Error parsing message_id: ${data['message_id']}. Using 0 as fallback.');
+            messageId = 0;
+          }
+          
+          // Ensure dates are properly parsed as integers
+          int messageDate;
+          try {
+            if (data['message_date'] != null) {
+              messageDate = data['message_date'] is int 
+                  ? data['message_date'] 
+                  : int.parse(data['message_date'].toString());
+            } else {
+              messageDate = DateTime.now().millisecondsSinceEpoch;
+            }
+          } catch (e) {
+            print('💾 CACHE_SERVICE: ⚠️ Error parsing message_date: ${data['message_date']}. Using current time as fallback.');
+            messageDate = DateTime.now().millisecondsSinceEpoch;
+          }
+          
+          final smsMessage = SmsMessage.fromJson({
+            'id': messageId,
+            'address': data['message_sender'] ?? '',
+            'body': data['message_body'] ?? '',
+            'date': messageDate,
+            'dateSent': messageDate,
+          });
+
+          // Print to verify the ID in the created SmsMessage object
+          print('💾 CACHE_SERVICE DEBUGGING: Created SmsMessage with ID: ${smsMessage.id}');
+                    
+          // Create MessageWithAmount object
+          final messageWithAmount = MessageWithAmount(
+            message: smsMessage,
+            amount: data['amount'],
+            formattedAmount: data['formatted_amount'],
+            extractedAmountText: data['extracted_amount_text'] ?? '',
+            isTransaction: data['is_transaction'] ?? false,
+            transactionDate: data['transaction_date'] ?? 'NA',
+            transactionType: data['transaction_type'] ?? 'NA',
+            toAccount: data['to_account'] ?? 'NA',
+            category: data['category'] ?? 'NA',
+            description: data['description'] ?? 'NA',
+          );
+
+          // Print to verify the ID in the MessageWithAmount object
+          print('💾 CACHE_SERVICE DEBUGGING: Added MessageWithAmount with ID: ${messageWithAmount.message.id}');
+
+          messages.add(messageWithAmount);
+        } catch (e) {
+          print('💾 CACHE_SERVICE: ❌ Error parsing cached message: $e');
+          // Continue with next message
+        }
+      }
+      
+      print('💾 CACHE_SERVICE: Retrieved ${messages.length} messages from cache');
+      return messages;
+    } catch (e) {
+      print('💾 CACHE_SERVICE: ❌ Error retrieving from cache: $e');
+      return [];
+    }
+  }
+  // Check if a message exists in cache by its ID
+  Future<bool> isMessageCached(String messageId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final List<String>? jsonMessages = prefs.getStringList(_cacheKey);
+      
+      if (jsonMessages == null || jsonMessages.isEmpty) {
+        print('💾 CACHE_SERVICE: No cached messages found when checking ID: $messageId');
+        return false;
+      }
+      
+      print('💾 CACHE_SERVICE: Checking if message ID: $messageId exists in ${jsonMessages.length} cached messages');
+      
+      // Directly check the JSON for the message ID without parsing the entire message
+      for (String jsonString in jsonMessages) {
+        try {
+          final Map<String, dynamic> data = jsonDecode(jsonString);
+          final String cachedId = data['message_id'].toString();
+          
+          // More detailed debug comparison
+          if (cachedId == messageId) {
+            final String messagePreview = data['message_body'] != null 
+                ? (data['message_body'].toString().length > 30 
+                    ? data['message_body'].toString().substring(0, 30) + "..." 
+                    : data['message_body'].toString())
+                : "[no body]";
+            print('💾 CACHE_SERVICE: ✅ Found message ID: $messageId in cache (Preview: $messagePreview)');
+            return true;
+          }
+        } catch (e) {
+          // Skip invalid entries
+          print('💾 CACHE_SERVICE: ⚠️ Error checking cached message ID: $e');
+          continue;
+        }
+      }
+      
+      print('💾 CACHE_SERVICE: ❌ Message ID: $messageId not found in cache');
+      return false;
+    } catch (e) {
+      print('💾 CACHE_SERVICE: ❌ Error checking message cache: $e');
+      return false;
+    }
+  }
+  
+  // Clear cache
+  Future<bool> clearCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_cacheKey);
+      print('💾 CACHE_SERVICE: Cache cleared');
+      return true;
+    } catch (e) {
+      print('💾 CACHE_SERVICE: ❌ Error clearing cache: $e');
+      return false;
+    }
+  }
+}

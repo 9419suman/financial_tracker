@@ -33,8 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
+    return Scaffold(      appBar: AppBar(
         title: Text(
           'Financial Tracker',
           style: GoogleFonts.poppins(
@@ -45,6 +44,29 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'clear_cache') {
+                _showClearCacheDialog(context);
+              }
+            },
+            itemBuilder: (BuildContext context) {
+              return [
+                const PopupMenuItem<String>(
+                  value: 'clear_cache',
+                  child: Row(
+                    children: [
+                      Icon(Icons.cleaning_services, color: Colors.blueGrey),
+                      SizedBox(width: 8),
+                      Text('Clear Cache'),
+                    ],
+                  ),
+                ),
+              ];
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -120,7 +142,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
   Future<void> _selectDate(BuildContext context) async {
     final provider = Provider.of<MessageProvider>(context, listen: false);
     final DateTime? picked = await showDatePicker(
@@ -143,6 +164,37 @@ class _HomeScreenState extends State<HomeScreen> {
     if (picked != null && picked != provider.selectedDate) {
       provider.setSelectedDate(picked);
     }
+  }
+  
+  // Show dialog to confirm cache clearing
+  void _showClearCacheDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Clear Cache'),
+          content: const Text(
+            'This will clear all cached message data and require re-processing messages with Gemini API. Continue?'
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                // Clear cache and close dialog
+                Navigator.of(context).pop();
+                Provider.of<MessageProvider>(context, listen: false).clearCache();
+              },
+              child: const Text('Clear Cache'),
+            ),
+          ],
+        );
+      },
+    );
   }
   Widget _buildFilterBar(BuildContext context) {
     final provider = Provider.of<MessageProvider>(context);

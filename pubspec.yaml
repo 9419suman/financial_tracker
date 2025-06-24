@@ -52,9 +52,11 @@ dependencies:
   
   # For HTTP requests
   http: ^1.1.0
-  
-  # For loading environment variables
+    # For loading environment variables
   flutter_dotenv: ^5.1.0
+  
+  # For local caching
+  shared_preferences: ^2.2.0
 
 dev_dependencies:
   flutter_test:

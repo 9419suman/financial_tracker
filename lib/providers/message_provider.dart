@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/message_model.dart';
 import '../services/sms_service.dart';
+import '../services/cache_service.dart';
 
 enum MessageFilter {
   all,
@@ -9,6 +10,7 @@ enum MessageFilter {
 
 class MessageProvider extends ChangeNotifier {
   final SmsService _smsService = SmsService();
+  final CacheService _cacheService = CacheService();
   
   List<MessageWithAmount> _messages = [];
   List<MessageWithAmount> _filteredMessages = [];
@@ -116,7 +118,27 @@ class MessageProvider extends ChangeNotifier {
       print("🔍 MESSAGE_PROVIDER: After bank transactions filter: ${_filteredMessages.length} messages");
     }
     
-    print("🔍 MESSAGE_PROVIDER: Final filtered messages count: ${_filteredMessages.length}");
+  print("🔍 MESSAGE_PROVIDER: Final filtered messages count: ${_filteredMessages.length}");
     notifyListeners();
+  }
+  
+  // Clear cache and reload messages
+  Future<void> clearCache() async {
+    _isLoading = true;
+    notifyListeners();
+    
+    try {
+      print("🧹 MESSAGE_PROVIDER: Clearing message cache");
+      await _cacheService.clearCache();
+      print("🧹 MESSAGE_PROVIDER: Cache cleared, reloading messages");
+      
+      // Reload messages after clearing cache
+      await loadMessages();
+    } catch (e) {
+      print("🧹 MESSAGE_PROVIDER: ❌ Error clearing cache: $e");
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }

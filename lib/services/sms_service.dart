@@ -4,10 +4,12 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/message_model.dart';
 import '../gemini_api_fin.dart';
+import 'cache_service.dart';
 
 class SmsService {
   final SmsQuery _query = SmsQuery();
   late final GeminiApi _geminiApi;
+  final CacheService _cacheService = CacheService();
   
   SmsService() {
     // Initialize Gemini API with key from .env file
@@ -41,8 +43,7 @@ class SmsService {
       print('Error fetching messages: $e');
       return [];
     }
-  }
-    // Process messages with Gemini API
+  }  // Process messages with Gemini API
   Future<List<MessageWithAmount>> processMessagesWithGemini(List<MessageWithAmount> messages) async {
     if (messages.isEmpty) {
       print("📱 SMS_SERVICE: No messages to process with Gemini");
@@ -50,10 +51,76 @@ class SmsService {
     }
     
     try {
-      print("📱 SMS_SERVICE: Starting Gemini processing for ${messages.length} messages");
+      print("📱 SMS_SERVICE: Starting processing for ${messages.length} messages");
       
-      // Create array of message bodies
-      List<String> messageBodies = messages.map((msg) => 
+      // First, try to get cached messages
+      List<MessageWithAmount> cachedMessages = [];
+      try {
+        cachedMessages = await _cacheService.getCachedMessages();
+        print("📱 SMS_SERVICE: Retrieved ${cachedMessages.length} messages from cache");
+      } catch (e) {
+        print("📱 SMS_SERVICE: ❌ Error retrieving cached messages: $e");
+        // Continue with an empty cache if there's an error
+        cachedMessages = [];
+      }
+        
+      // Create a map for faster lookup of cached messages by ID
+      final Map<String, MessageWithAmount> cachedMessagesMap = {};
+      for (var message in cachedMessages) {
+        final String msgId = message.message.id.toString();
+        print("📱 SMS_SERVICE: Caching message: ${message.message.id}");
+        cachedMessagesMap[msgId] = message;
+        
+        // Enhanced debug log to see what's in the cache with more details
+        final String msgPreview = message.message.body != null 
+            ? (message.message.body!.length > 30 
+                ? message.message.body!.substring(0, 30) + "..." 
+                : message.message.body!)
+            : "[no body]";
+        print("📱 SMS_SERVICE: Cached message ID: $msgId (Preview: $msgPreview)");
+      }
+      
+      // Create lists for cached and non-cached messages
+      List<MessageWithAmount> processedMessages = [];
+      List<MessageWithAmount> messagesToProcess = [];
+      
+      // Separate messages that are already cached from those that need processing
+      for (var message in messages) {
+        final String msgId = message.message.id.toString();
+        final String msgPreview = message.message.body != null 
+            ? (message.message.body!.length > 30 
+                ? message.message.body!.substring(0, 30) + "..." 
+                : message.message.body!)
+            : "[no body]";
+        
+        // Debug to see what we're checking
+        print("📱 SMS_SERVICE: Checking if message ID $msgId is in cache (Preview: $msgPreview)");
+        // print('Keys: ${cachedMessagesMap.keys.toList()}, Current msgId: $msgId');
+        // Check if this message is in cache by ID (using map for faster lookup)
+        if (cachedMessagesMap.containsKey(msgId)) {
+          // If it's in cache, use the cached version
+          print("📱 SMS_SERVICE: Found message $msgId in cache");
+          processedMessages.add(cachedMessagesMap[msgId]!);
+        } else {
+          // If not in cache, add to list for processing
+          print("📱 SMS_SERVICE: Message $msgId not in cache, will process");
+          messagesToProcess.add(message);
+        }
+      }
+      
+      print("📱 SMS_SERVICE: ${processedMessages.length} messages from cache, ${messagesToProcess.length} messages to process");
+      
+      // If all messages were in cache, return them
+      if (messagesToProcess.isEmpty) {
+        print("📱 SMS_SERVICE: All messages found in cache, no Gemini API call needed");
+        return processedMessages;
+      }
+      
+      // Process only the messages that weren't in cache
+      print("📱 SMS_SERVICE: Processing ${messagesToProcess.length} messages with Gemini");
+      
+      // Create array of message bodies for messages that need processing
+      List<String> messageBodies = messagesToProcess.map((msg) => 
           msg.message.body != null ? msg.message.body! : "").toList();
       
       print("📱 SMS_SERVICE: Message bodies prepared for Gemini");
@@ -74,7 +141,8 @@ Ensure that the order of structured output matches the order of array input for 
       
       if (!response.success) {
         print("📱 SMS_SERVICE: ❌ Error from Gemini API: ${response.error}");
-        return messages; // Return original messages if API fails
+        // Return combined list of cached messages and original messages that couldn't be processed
+        return [...processedMessages, ...messagesToProcess];
       }
       
       print("📱 SMS_SERVICE: ✅ Gemini API call successful");
@@ -86,31 +154,48 @@ Ensure that the order of structured output matches the order of array input for 
         final List<dynamic> transactionData = jsonDecode(response.text);
         print("📱 SMS_SERVICE: ✅ Successfully parsed JSON with ${transactionData.length} items");
         
-        // Create new list with processed messages
-        List<MessageWithAmount> processedMessages = [];
+        // Process new messages with Gemini data
+        List<MessageWithAmount> newlyProcessedMessages = [];
         
         // Match transactions with messages
-        for (int i = 0; i < messages.length; i++) {
+        for (int i = 0; i < messagesToProcess.length; i++) {
           if (i < transactionData.length) {
-            print("📱 SMS_SERVICE: Processing message ${i+1}/${messages.length}");
+            print("📱 SMS_SERVICE: Processing message ${i+1}/${messagesToProcess.length}");
             print("📱 SMS_SERVICE: Transaction data for message ${i+1}: ${transactionData[i]}");
             
-            processedMessages.add(
-              MessageWithAmount.fromGeminiResponse(messages[i].message, transactionData[i])
+            newlyProcessedMessages.add(
+              MessageWithAmount.fromGeminiResponse(messagesToProcess[i].message, transactionData[i])
             );
           } else {
             // If we have more messages than transactions, use original message
             print("📱 SMS_SERVICE: ⚠️ No transaction data for message ${i+1}, using original");
-            processedMessages.add(messages[i]);
+            newlyProcessedMessages.add(messagesToProcess[i]);
           }
         }
         
-        print("📱 SMS_SERVICE: ✅ Finished processing ${processedMessages.length} messages with Gemini");
-        return processedMessages;
+        // Save newly processed messages to cache
+        print("📱 SMS_SERVICE: Saving ${newlyProcessedMessages.length} newly processed messages to cache");
+        final cacheResult = await _cacheService.saveProcessedMessages(newlyProcessedMessages);
+        if (cacheResult) {
+          print("📱 SMS_SERVICE: ✅ Successfully saved to cache");
+        } else {
+          print("📱 SMS_SERVICE: ⚠️ Cache save returned false");
+        }
+        
+        // Verify cache was updated
+        final updatedCachedMessages = await _cacheService.getCachedMessages();
+        print("📱 SMS_SERVICE: ✅ Cache now contains ${updatedCachedMessages.length} messages total (was ${cachedMessages.length} before)");
+        
+        // Combine cached and newly processed messages
+        final allProcessedMessages = [...processedMessages, ...newlyProcessedMessages];
+        print("📱 SMS_SERVICE: ✅ Returning ${allProcessedMessages.length} total processed messages");
+        
+        return allProcessedMessages;
       } catch (e) {
         print("📱 SMS_SERVICE: ❌ Error parsing Gemini API response: $e");
         print("📱 SMS_SERVICE: Raw response: ${response.text}");
-        return messages; // Return original messages if parsing fails
+        // Return combined list of cached messages and original messages that couldn't be processed
+        return [...processedMessages, ...messagesToProcess];
       }
     } catch (e) {
       print("📱 SMS_SERVICE: ❌ Error processing messages with Gemini: $e");
