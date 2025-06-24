@@ -15,12 +15,14 @@ class MessageProvider extends ChangeNotifier {
   bool _isLoading = false;
   String _searchQuery = '';
   MessageFilter _currentFilter = MessageFilter.all;
+  DateTime _selectedDate = DateTime(2025, 1, 1); // Default date: January 1, 2025
   
   // Getters
   List<MessageWithAmount> get messages => _filteredMessages;
   bool get isLoading => _isLoading;
   String get searchQuery => _searchQuery;
   MessageFilter get currentFilter => _currentFilter;
+  DateTime get selectedDate => _selectedDate;
   
   // Initialize and load messages
   Future<void> loadMessages() async {
@@ -50,11 +52,40 @@ class MessageProvider extends ChangeNotifier {
     _applyFilters();
   }
   
+  // Set date filter
+  void setSelectedDate(DateTime date) {
+    _selectedDate = date;
+    _applyFilters();
+  }
+  
   // Apply filters based on search query and current filter
   void _applyFilters() {
     // Start with all messages
     _filteredMessages = List.from(_messages);
-      // Apply search filter if there's a query
+    
+    // Apply date filter
+    _filteredMessages = _filteredMessages.where((message) {
+      // Skip messages with null date
+      if (message.message.date == null) return false;
+      
+      // Compare only the date part (ignoring time)
+      final messageDate = DateTime(
+        message.message.date!.year,
+        message.message.date!.month,
+        message.message.date!.day,
+      );
+      
+      final filterDate = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+      );
+      
+      // Show messages from the selected date onward
+      return messageDate.isAtSameMomentAs(filterDate) || messageDate.isAfter(filterDate);
+    }).toList();
+      
+    // Apply search filter if there's a query
     if (_searchQuery.isNotEmpty) {
       _filteredMessages = _filteredMessages.where((message) {
         final bool bodyContains = message.message.body?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false;

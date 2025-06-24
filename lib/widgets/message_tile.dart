@@ -66,8 +66,9 @@ class MessageTile extends StatelessWidget {
                     Text(
                       message.formattedDate,
                       style: GoogleFonts.poppins(
-                        color: Colors.grey,
+                        color: Theme.of(context).colorScheme.primary,
                         fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
