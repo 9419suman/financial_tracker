@@ -21,6 +21,8 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     // Load messages when the screen is first built
     Future.microtask(() {
+      // The provider is already initialized with Today's date
+      // in its constructor, so we just need to load messages
       context.read<MessageProvider>().loadMessages();
     });
   }
@@ -87,6 +89,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final provider = Provider.of<MessageProvider>(context);
     final dateFormat = DateFormat('MMM dd, yyyy');
     
+    String dateRangeText() {
+      if (!provider.isDateRangeMode || provider.startDate == null || provider.endDate == null) {
+        return provider.startDate != null ? dateFormat.format(provider.startDate!) : 'Select date';
+      } else if (provider.startDate!.isAtSameMomentAs(provider.endDate!)) {
+        return dateFormat.format(provider.startDate!);
+      } else {
+        return '${dateFormat.format(provider.startDate!)} - ${dateFormat.format(provider.endDate!)}';
+      }
+    }
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -98,82 +110,188 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Icon(
-            Icons.calendar_today,
-            size: 20,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(width: 12),
-          // Wrap the label text in a Flexible widget to prevent overflow
-          Flexible(
-            flex: 2,
-            child: Text(
-              'Show messages from:',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w500,
+          Row(
+            children: [
+              Icon(
+                Icons.calendar_today,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
               ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 3,
-            child: InkWell(
-              onTap: () => _selectDate(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),                  borderRadius: BorderRadius.circular(8),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  'Show messages from:',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        dateFormat.format(provider.selectedDate),
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w500,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => _selectDateRange(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            dateRangeText(),
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        Icon(
+                          Icons.arrow_drop_down,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ],
                     ),
-                    Icon(
-                      Icons.arrow_drop_down,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () {
+                  Provider.of<MessageProvider>(context, listen: false).setToday();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Today',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
-  Future<void> _selectDate(BuildContext context) async {
+  Future<void> _selectDateRange(BuildContext context) async {
     final provider = Provider.of<MessageProvider>(context, listen: false);
-    final DateTime? picked = await showDatePicker(
+    
+    // Show dialog with date range picker and single date picker options
+    showDialog(
       context: context,
-      initialDate: provider.selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: Theme.of(context).colorScheme.primary,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Select Date',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold,
             ),
           ),
-          child: child!,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.calendar_today, color: Theme.of(context).colorScheme.primary),
+                title: Text('Select Single Date', style: GoogleFonts.poppins()),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final DateTime? picked = await showDatePicker(
+                    context: context,
+                    initialDate: provider.startDate ?? DateTime.now(),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: ColorScheme.light(
+                            primary: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+                  
+                  if (picked != null) {
+                    provider.setSelectedDate(picked);
+                  }
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.date_range, color: Theme.of(context).colorScheme.primary),
+                title: Text('Select Date Range', style: GoogleFonts.poppins()),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final DateTimeRange? picked = await showDateRangePicker(
+                    context: context,
+                    initialDateRange: provider.startDate != null && provider.endDate != null 
+                        ? DateTimeRange(start: provider.startDate!, end: provider.endDate!)
+                        : DateTimeRange(
+                            start: DateTime.now(),
+                            end: DateTime.now().add(const Duration(days: 7)),
+                          ),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: ColorScheme.light(
+                            primary: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+                  
+                  if (picked != null) {
+                    provider.setDateRange(picked.start, picked.end);
+                  }
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.today, color: Theme.of(context).colorScheme.primary),
+                title: Text('Today', style: GoogleFonts.poppins()),
+                onTap: () {
+                  Navigator.pop(context);
+                  provider.setToday();
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
-    
-    if (picked != null && picked != provider.selectedDate) {
-      provider.setSelectedDate(picked);
-    }
   }
   
   // Show dialog to confirm cache clearing

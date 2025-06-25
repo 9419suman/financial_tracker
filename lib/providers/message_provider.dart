@@ -17,27 +17,42 @@ class MessageProvider extends ChangeNotifier {
   bool _isLoading = false;
   String _searchQuery = '';
   MessageFilter _currentFilter = MessageFilter.all;
-  DateTime _selectedDate = DateTime(2025, 6, 22); // Default date: June 22, 2025
+  
+  // Date filtering
+  DateTime? _startDate;
+  DateTime? _endDate;
+  bool _isDateRangeMode = false;
+  
+  // Initialize with today's date
+  MessageProvider() {
+    // Set today as default
+    setToday();
+  }
 
   // Getters
   List<MessageWithAmount> get messages => _filteredMessages;
   bool get isLoading => _isLoading;
   String get searchQuery => _searchQuery;
   MessageFilter get currentFilter => _currentFilter;
-  DateTime get selectedDate => _selectedDate;
+  DateTime? get startDate => _startDate;
+  DateTime? get endDate => _endDate;
+  bool get isDateRangeMode => _isDateRangeMode;
+  
+  // For backward compatibility
+  DateTime get selectedDate => _startDate ?? DateTime.now();
     // Initialize and load messages
   Future<void> loadMessages() async {
     _isLoading = true;
     notifyListeners();
     
     try {
-      print("📅 MESSAGE_PROVIDER: Loading messages with date filter: ${_selectedDate.toString()}");
+      print("📅 MESSAGE_PROVIDER: Loading messages with date filter: Start: ${_startDate}, End: ${_endDate}");
       
       // Get all messages first
       final rawMessages = await _smsService.getAllMessages();
       print("📅 MESSAGE_PROVIDER: Retrieved ${rawMessages.length} raw messages");
       
-      // Filter messages by date first to reduce processing
+      // Filter messages by date range
       final dateFilteredMessages = rawMessages.where((message) {
         // Skip messages with null date
         if (message.message.date == null) return false;
@@ -49,16 +64,33 @@ class MessageProvider extends ChangeNotifier {
           message.message.date!.day,
         );
         
-        final filterDate = DateTime(
-          _selectedDate.year,
-          _selectedDate.month,
-          _selectedDate.day,
-        );
+        final startFilterDate = _startDate != null ? DateTime(
+          _startDate!.year,
+          _startDate!.month,
+          _startDate!.day,
+        ) : null;
         
-        print("📅 MESSAGE_PROVIDER: Comparing message date ${messageDate.toString()} with filter date ${filterDate.toString()}");
+        final endFilterDate = _endDate != null ? DateTime(
+          _endDate!.year,
+          _endDate!.month,
+          _endDate!.day,
+        ) : null;
         
-        // Show messages from the selected date onward
-        return messageDate.isAtSameMomentAs(filterDate) || messageDate.isAfter(filterDate);
+        print("📅 MESSAGE_PROVIDER: Comparing message date $messageDate with filter range $startFilterDate to $endFilterDate");
+        
+        // If no date filters are set, include all messages
+        if (startFilterDate == null) return true;
+        
+        // For single date filter (not range)
+        if (!_isDateRangeMode || endFilterDate == null || startFilterDate.isAtSameMomentAs(endFilterDate)) {
+          return messageDate.isAtSameMomentAs(startFilterDate);
+        }
+        
+        // For date range
+        return (messageDate.isAtSameMomentAs(startFilterDate) || 
+                messageDate.isAfter(startFilterDate)) && 
+               (messageDate.isAtSameMomentAs(endFilterDate) || 
+                messageDate.isBefore(endFilterDate));
       }).toList();
       
       print("📅 MESSAGE_PROVIDER: After date filter: ${dateFilteredMessages.length} messages remaining");
@@ -88,10 +120,28 @@ class MessageProvider extends ChangeNotifier {
     _applyFilters();
   }
   
-  // Set date filter
+  // Set single date filter (for backward compatibility)
   void setSelectedDate(DateTime date) {
-    _selectedDate = date;
-    // Reload messages when date changes to get fresh Gemini processing
+    _startDate = date;
+    _endDate = date;
+    _isDateRangeMode = false;
+    loadMessages();
+  }
+  
+  // Set date range filter
+  void setDateRange(DateTime? start, DateTime? end) {
+    _startDate = start;
+    _endDate = end;
+    _isDateRangeMode = true;
+    loadMessages();
+  }
+  
+  // Set to today only
+  void setToday() {
+    final today = DateTime.now();
+    _startDate = DateTime(today.year, today.month, today.day);
+    _endDate = _startDate;
+    _isDateRangeMode = false;
     loadMessages();
   }
     // Apply filters based on search query and current filter
