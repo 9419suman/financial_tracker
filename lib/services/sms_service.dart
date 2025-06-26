@@ -77,7 +77,7 @@ class SmsService {
                   ? messageDict['message_body'].toString().substring(0, 30) + "..." 
                   : messageDict['message_body'].toString())
               : "[no body]";
-          print("📱 SMS_SERVICE: Cached message ID: $msgId (Preview: $msgPreview)");
+          // print("📱 SMS_SERVICE: Cached message ID: $msgId (Preview: $msgPreview)");
         }
       }
       
@@ -104,40 +104,40 @@ class SmsService {
           
           final cachedDict = cachedMessagesMap[msgId]!;
           
-          // Create an SmsMessage from the cached data
-          int messageDate;
-          try {
-            if (cachedDict['message_date'] != null) {
-              messageDate = cachedDict['message_date'] is int 
-                  ? cachedDict['message_date'] 
-                  : int.parse(cachedDict['message_date'].toString());
-            } else {
-              messageDate = DateTime.now().millisecondsSinceEpoch;
-            }
-          } catch (e) {
-            print('📱 SMS_SERVICE: ⚠️ Error parsing message_date. Using current time as fallback.');
-            messageDate = DateTime.now().millisecondsSinceEpoch;
-          }
+          // // Create an SmsMessage from the cached data
+          // int messageDate;
+          // try {
+          //   if (cachedDict['message_date'] != null) {
+          //     messageDate = cachedDict['message_date'] is int 
+          //         ? cachedDict['message_date'] 
+          //         : int.parse(cachedDict['message_date'].toString());
+          //   } else {
+          //     messageDate = DateTime.now().millisecondsSinceEpoch;
+          //   }
+          // } catch (e) {
+          //   print('📱 SMS_SERVICE: ⚠️ Error parsing message_date. Using current time as fallback.');
+          //   messageDate = DateTime.now().millisecondsSinceEpoch;
+          // }
           
-          int messageId;
-          try {
-            messageId = int.parse(cachedDict['message_id'].toString());
-          } catch (e) {
-            print('📱 SMS_SERVICE: ⚠️ Error parsing message_id. Using original message ID as fallback.');
-            messageId = message.message.id ?? 0;
-          }
+          // int messageId;
+          // try {
+          //   messageId = int.parse(cachedDict['message_id'].toString());
+          // } catch (e) {
+          //   print('📱 SMS_SERVICE: ⚠️ Error parsing message_id. Using original message ID as fallback.');
+          //   messageId = message.message.id ?? 0;
+          // }
           
-          final smsMessage = SmsMessage.fromJson({
-            'id': messageId,
-            'address': cachedDict['message_sender'] ?? '',
-            'body': cachedDict['message_body'] ?? '',
-            'date': messageDate,
-            'dateSent': messageDate,
-          });
+          // final smsMessage = SmsMessage.fromJson({
+          //   'id': messageId,
+          //   'address': cachedDict['message_sender'] ?? '',
+          //   'body': cachedDict['message_body'] ?? '',
+          //   'date': messageDate,
+          //   'dateSent': messageDate,
+          // });
           
           // Create MessageWithAmount from cached data
           final cachedMessage = MessageWithAmount(
-            message: smsMessage,
+            message: message.message,
             amount: cachedDict['amount'],
             formattedAmount: cachedDict['formatted_amount'],
             extractedAmountText: cachedDict['extracted_amount_text'] ?? '',

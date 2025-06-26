@@ -50,6 +50,7 @@ class MessageProvider extends ChangeNotifier {
       
       // Get all messages first
       final rawMessages = await _smsService.getAllMessages();
+      
       print("📅 MESSAGE_PROVIDER: Retrieved ${rawMessages.length} raw messages");
       
       // Filter messages by date range
@@ -76,7 +77,7 @@ class MessageProvider extends ChangeNotifier {
           _endDate!.day,
         ) : null;
         
-        print("📅 MESSAGE_PROVIDER: Comparing message date $messageDate with filter range $startFilterDate to $endFilterDate");
+        //print("📅 MESSAGE_PROVIDER: Comparing message date $messageDate with filter range $startFilterDate to $endFilterDate");
         
         // If no date filters are set, include all messages
         if (startFilterDate == null) return true;
@@ -95,6 +96,7 @@ class MessageProvider extends ChangeNotifier {
       
       print("📅 MESSAGE_PROVIDER: After date filter: ${dateFilteredMessages.length} messages remaining");
       
+
       // Process messages with Gemini API
       _messages = await _smsService.processMessagesWithGemini(dateFilteredMessages);
       print("📅 MESSAGE_PROVIDER: Processed ${_messages.length} messages with Gemini");

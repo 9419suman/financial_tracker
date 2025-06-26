@@ -6,6 +6,7 @@ import '../models/message_model.dart';
 class MessageTile extends StatelessWidget {
   final MessageWithAmount message;
   final VoidCallback onTap;
+  
 
   const MessageTile({
     Key? key,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/message_model.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class MessageDetailScreen extends StatelessWidget {
   final MessageWithAmount message;
@@ -12,6 +13,7 @@ class MessageDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -53,11 +55,11 @@ class MessageDetailScreen extends StatelessWidget {
             ],
             if (message.amount != null) ...[
               const SizedBox(height: 16),
-              _buildInfoCard(
+             _buildInfoCard(
                 context,
                 'Amount',
                 message.formattedAmount ?? '',
-                Icons.attach_money,
+                MdiIcons.currencyInr,   // <- here's the rupee icon
                 isAmount: true,
                 isCredit: message.transactionType.toLowerCase() == 'credit',
               ),
