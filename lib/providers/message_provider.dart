@@ -193,4 +193,50 @@ class MessageProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+  
+  // Update a message's metadata
+  Future<bool> updateMessage(MessageWithAmount updatedMessage) async {
+    _isLoading = true;
+    notifyListeners();
+    
+    try {
+      print("📝 MESSAGE_PROVIDER: Updating message metadata for ID: ${updatedMessage.message.id}");
+      
+      // First update the message in cache
+      final cacheResult = await _cacheService.updateMessage(updatedMessage);
+      
+      if (!cacheResult) {
+        print("📝 MESSAGE_PROVIDER: ❌ Failed to update message in cache");
+        return false;
+      }
+      
+      // Then update the message in our local lists
+      // Find and update the message in the main message list
+      for (int i = 0; i < _messages.length; i++) {
+        if (_messages[i].message.id == updatedMessage.message.id) {
+          _messages[i] = updatedMessage;
+          print("📝 MESSAGE_PROVIDER: Updated message in main list");
+          break;
+        }
+      }
+      
+      // Find and update the message in the filtered list if present
+      for (int i = 0; i < _filteredMessages.length; i++) {
+        if (_filteredMessages[i].message.id == updatedMessage.message.id) {
+          _filteredMessages[i] = updatedMessage;
+          print("📝 MESSAGE_PROVIDER: Updated message in filtered list");
+          break;
+        }
+      }
+      
+      print("📝 MESSAGE_PROVIDER: ✅ Message update complete");
+      return true;
+    } catch (e) {
+      print("📝 MESSAGE_PROVIDER: ❌ Error updating message: $e");
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/message_model.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'edit_message_metadata_screen.dart';
 
-class MessageDetailScreen extends StatelessWidget {
+class MessageDetailScreen extends StatefulWidget {
   final MessageWithAmount message;
 
   const MessageDetailScreen({
@@ -12,8 +13,20 @@ class MessageDetailScreen extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  State<MessageDetailScreen> createState() => _MessageDetailScreenState();
+}
 
+class _MessageDetailScreenState extends State<MessageDetailScreen> {
+  late MessageWithAmount _message;
+
+  @override
+  void initState() {
+    super.initState();
+    _message = widget.message;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -25,6 +38,13 @@ class MessageDetailScreen extends StatelessWidget {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: _navigateToEdit,
+            tooltip: 'Edit transaction details',
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -34,70 +54,70 @@ class MessageDetailScreen extends StatelessWidget {
             _buildInfoCard(
               context,
               'From',
-              message.message.sender ?? 'Unknown Sender',
+              _message.message.sender ?? 'Unknown Sender',
               Icons.person,
             ),
             const SizedBox(height: 16),
             _buildInfoCard(
               context,
               'Date & Time',
-              message.formattedDate,
+              _message.formattedDate,
               Icons.access_time,
             ),
-            if (message.isTransaction && message.transactionDate != 'NA') ...[
+            if (_message.isTransaction && _message.transactionDate != 'NA') ...[
               const SizedBox(height: 16),
               _buildInfoCard(
                 context,
                 'Transaction Date',
-                message.transactionDate,
+                _message.transactionDate,
                 Icons.calendar_today,
               ),
             ],
-            if (message.amount != null) ...[
+            if (_message.amount != null) ...[
               const SizedBox(height: 16),
              _buildInfoCard(
                 context,
                 'Amount',
-                message.formattedAmount ?? '',
+                _message.formattedAmount ?? '',
                 MdiIcons.currencyInr,   // <- here's the rupee icon
                 isAmount: true,
-                isCredit: message.transactionType.toLowerCase() == 'credit',
+                isCredit: _message.transactionType.toLowerCase() == 'credit',
               ),
             ],
-            if (message.isTransaction && message.transactionType != 'NA') ...[
+            if (_message.isTransaction && _message.transactionType != 'NA') ...[
               const SizedBox(height: 16),
               _buildInfoCard(
                 context,
                 'Transaction Type',
-                message.transactionType,
+                _message.transactionType,
                 Icons.swap_horiz,
-                isCredit: message.transactionType.toLowerCase() == 'credit',
+                isCredit: _message.transactionType.toLowerCase() == 'credit',
               ),
             ],
-            if (message.isTransaction && message.category != 'NA') ...[
+            if (_message.isTransaction && _message.category != 'NA') ...[
               const SizedBox(height: 16),
               _buildInfoCard(
                 context,
                 'Category',
-                message.category,
-                _getCategoryIcon(message.category),
+                _message.category,
+                _getCategoryIcon(_message.category),
               ),
             ],
-            if (message.isTransaction && message.toAccount != 'NA') ...[
+            if (_message.isTransaction && _message.toAccount != 'NA') ...[
               const SizedBox(height: 16),
               _buildInfoCard(
                 context,
                 'To Account',
-                message.toAccount,
+                _message.toAccount,
                 Icons.account_balance,
               ),
             ],
-            if (message.isTransaction && message.description != 'NA') ...[
+            if (_message.isTransaction && _message.description != 'NA') ...[
               const SizedBox(height: 16),
               _buildInfoCard(
                 context,
                 'Description',
-                message.description,
+                _message.description,
                 Icons.description,
               ),
             ],
@@ -121,7 +141,7 @@ class MessageDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     SelectableText(
-                      message.message.body ?? 'No message content',
+                      _message.message.body ?? 'No message content',
                       style: GoogleFonts.poppins(
                         fontSize: 16,
                       ),
@@ -134,6 +154,22 @@ class MessageDetailScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+  
+  Future<void> _navigateToEdit() async {
+    final result = await Navigator.push<MessageWithAmount>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditMessageMetadataScreen(message: _message),
+      ),
+    );
+    
+    // If we got a result back, update the message
+    if (result != null) {
+      setState(() {
+        _message = result;
+      });
+    }
   }
 
   IconData _getCategoryIcon(String category) {

@@ -75,6 +75,33 @@ class MessageWithAmount {
       description: geminiData['description'] ?? 'NA',
     );
   }
+  
+  // Copy with method to allow updating specific fields
+  MessageWithAmount copyWith({
+    SmsMessage? message,
+    double? amount,
+    String? formattedAmount,
+    String? extractedAmountText,
+    bool? isTransaction,
+    String? transactionDate,
+    String? transactionType,
+    String? toAccount,
+    String? category,
+    String? description,
+  }) {
+    return MessageWithAmount(
+      message: message ?? this.message,
+      amount: amount ?? this.amount,
+      formattedAmount: formattedAmount ?? this.formattedAmount,
+      extractedAmountText: extractedAmountText ?? this.extractedAmountText,
+      isTransaction: isTransaction ?? this.isTransaction,
+      transactionDate: transactionDate ?? this.transactionDate,
+      transactionType: transactionType ?? this.transactionType,
+      toAccount: toAccount ?? this.toAccount,
+      category: category ?? this.category,
+      description: description ?? this.description,
+    );
+  }
 
   // Helper method to get formatted date
   String get formattedDate {

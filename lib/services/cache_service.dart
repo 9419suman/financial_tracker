@@ -193,4 +193,111 @@ class CacheService {
       return false;
     }
   }
+  // Update a specific message in the cache
+  Future<bool> updateMessage(MessageWithAmount message) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Get existing messages
+      final List<String> existingJsonMessages = prefs.getStringList(_cacheKey) ?? [];
+      print('💾 CACHE_SERVICE: Found ${existingJsonMessages.length} existing cached messages');
+      
+      final String messageId = message.message.id.toString();
+      print('💾 CACHE_SERVICE: Updating message with ID: $messageId');
+      
+      bool foundAndUpdated = false;
+      List<String> updatedMessages = [];
+      
+      for (int i = 0; i < existingJsonMessages.length; i++) {
+        try {
+          final Map<String, dynamic> data = jsonDecode(existingJsonMessages[i]);
+          final String cachedId = data['message_id'].toString();
+          
+          if (cachedId == messageId) {
+            // This is the message we want to update
+            print('💾 CACHE_SERVICE: Found message to update with ID: $messageId');
+            
+            // Create an updated map with the new values
+            final Map<String, dynamic> updatedData = {
+              'message_id': messageId,
+              'message_body': message.message.body,
+              'message_sender': message.message.sender,
+              'message_date': message.message.date?.millisecondsSinceEpoch,
+              'amount': message.amount,
+              'formatted_amount': message.formattedAmount,
+              'extracted_amount_text': message.extractedAmountText,
+              'is_transaction': message.isTransaction,
+              'transaction_date': message.transactionDate,
+              'transaction_type': message.transactionType,
+              'to_account': message.toAccount,
+              'category': message.category,
+              'description': message.description,
+            };
+            
+            final String updatedJsonString = jsonEncode(updatedData);
+            updatedMessages.add(updatedJsonString);
+            foundAndUpdated = true;
+            print('💾 CACHE_SERVICE: Updated message in cache: $messageId');
+          } else {
+            // Not the message we're looking for, keep it as is
+            updatedMessages.add(existingJsonMessages[i]);
+          }
+        } catch (e) {
+          // Skip invalid entries but keep them in the cache
+          print('💾 CACHE_SERVICE: ⚠️ Skipping invalid cache entry: $e');
+          updatedMessages.add(existingJsonMessages[i]);
+        }
+      }
+      
+      if (!foundAndUpdated) {
+        print('💾 CACHE_SERVICE: ❌ Message not found in cache, ID: $messageId');
+        return false;
+      }
+      
+      // Save updated list back to SharedPreferences
+      await prefs.setStringList(_cacheKey, updatedMessages);
+      print('💾 CACHE_SERVICE: Successfully saved updated message cache');
+      
+      return true;
+    } catch (e) {
+      print('💾 CACHE_SERVICE: ❌ Error updating message in cache: $e');
+      return false;
+    }
+  }
+  // Get a specific message from cache by ID
+  Future<Map<String, dynamic>?> getCachedMessageById(String messageId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final List<String>? jsonMessages = prefs.getStringList(_cacheKey);
+      
+      if (jsonMessages == null || jsonMessages.isEmpty) {
+        print('💾 CACHE_SERVICE: No cached messages found when looking for ID: $messageId');
+        return null;
+      }
+      
+      print('💾 CACHE_SERVICE: Searching for message ID: $messageId in ${jsonMessages.length} cached messages');
+      
+      for (String jsonString in jsonMessages) {
+        try {
+          final Map<String, dynamic> data = jsonDecode(jsonString);
+          final String cachedId = data['message_id'].toString();
+          
+          if (cachedId == messageId) {
+            print('💾 CACHE_SERVICE: ✅ Found message ID: $messageId in cache');
+            return data;
+          }
+        } catch (e) {
+          // Skip invalid entries
+          print('💾 CACHE_SERVICE: ⚠️ Error checking cached message: $e');
+          continue;
+        }
+      }
+      
+      print('💾 CACHE_SERVICE: ❌ Message ID: $messageId not found in cache');
+      return null;
+    } catch (e) {
+      print('💾 CACHE_SERVICE: ❌ Error retrieving specific message from cache: $e');
+      return null;
+    }
+  }
 }
