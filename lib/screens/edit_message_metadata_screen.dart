@@ -228,17 +228,28 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
     required IconData icon,
     required List<String> options,
   }) {
-    
-    // Make a local list including controller.text if not already present
-    final List<String> dropdownOptions = List.from(options);
-    if (controller.text.isNotEmpty && !dropdownOptions.contains(controller.text)) {
-      dropdownOptions.add(controller.text);
+    // Capitalize function
+    String capitalize(String s) =>
+        s.isNotEmpty ? s[0].toUpperCase() + s.substring(1).toLowerCase() : '';
+
+    // Capitalized controller text
+    final controllerTextCapitalized = capitalize(controller.text);
+
+    // Make a local list with capitalized options
+    final List<String> dropdownOptions =
+        options.map((opt) => capitalize(opt)).toSet().toList();
+
+    // Add controller text if not already present (case-insensitively)
+    if (controller.text.isNotEmpty &&
+        !dropdownOptions
+            .any((opt) => opt.toLowerCase() == controller.text.toLowerCase())) {
+      dropdownOptions.add(controllerTextCapitalized);
     }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: DropdownButtonFormField<String>(
-        value: controller.text,
+        value: controllerTextCapitalized.isEmpty ? null : controllerTextCapitalized,
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
@@ -248,13 +259,18 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
           ),
           contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         ),
+        dropdownColor: Colors.white,  // add this
         style: GoogleFonts.poppins(
           fontSize: 16,
+          color: Colors.black,        // add this
         ),
         items: dropdownOptions.map((String value) {
           return DropdownMenuItem<String>(
             value: value,
-            child: Text(value),
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.black),  // force visible text
+            ),
           );
         }).toList(),
         onChanged: (newValue) {
@@ -265,6 +281,7 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
       ),
     );
   }
+
 
 
   void _saveChanges() async {
