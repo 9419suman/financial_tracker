@@ -76,13 +76,14 @@ class GeminiApi {
               'properties': {
                 'message_id': {'type': 'STRING'},
                 'transaction_flag': {'type': 'BOOLEAN'},
-                'amount': {'type': 'STRING'},
+                'from_account': {'type': 'STRING'},
+                'to_account': {'type': 'STRING'},
                 'type': {'type': 'STRING'},
-                'account': {'type': 'STRING'},
+                'amount': {'type': 'STRING'},
                 'category': {'type': 'STRING'},
                 'reason': {'type': 'STRING'}
               },
-              'required': ['message_id', 'transaction_flag', 'amount', 'type', 'account', 'category', 'reason']
+              'required': ['message_id', 'transaction_flag', 'amount', 'type', 'from_account', 'to_account', 'category', 'reason']
             }
           },
         }

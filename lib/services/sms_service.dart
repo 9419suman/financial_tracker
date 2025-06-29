@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 import '../models/message_model.dart';
 import '../gemini_api_fin.dart';
 import 'cache_service.dart';
@@ -144,7 +145,8 @@ class SmsService {
             isTransaction: cachedDict['is_transaction'] ?? false,
             transactionDate: cachedDict['transaction_date'] ?? 'NA',
             transactionType: cachedDict['transaction_type'] ?? 'NA',
-            account: cachedDict['account'] ?? cachedDict['to_account'] ?? 'NA',  // Try account first, fall back to to_account
+            from_account: cachedDict['from_account'] ?? 'NA',
+            to_account: cachedDict['to_account'] ?? 'NA',
             category: cachedDict['category'] ?? 'NA',
             reason: cachedDict['reason'] ?? cachedDict['description'] ?? 'NA',  // Try reason first, fall back to description
           );
@@ -177,11 +179,26 @@ class SmsService {
       
       // Create prompt for Gemini API
       String prompt = '''
-You are expert in identifying and parsing bank (credit/debit/upi etc.) transaction. You are given the list of messages (with unique IDs) from SMS inbox. Your task is to identify bank transactions and extract structured data from them.:
+You are an expert in identifying and parsing personal financial transactions (bank/credit card/UPI/etc.) from SMS messages. You are given a list of messages (with unique IDs) from a user's SMS inbox.
+
 Message List : ${jsonEncode(messageDataList)}
-Categorize each transaction and extract structured data as a list of transactions with: message_id (from input), transaction_flag (True for bank transaction/ False for otherwise), amount, type (credit or debit), account, category, and reason for the categorisation.
-Note: Other fields for non financial (bank) transactions should be kept 'NA'
-Return a valid JSON array where each item contains the message_id to enable proper mapping.
+
+Your task is to:
+  Identify messages that reflect actual personal financial transactions (e.g., money credited, debited, or transferred via UPI or banking channels).
+  Exclude messages that do not indicate a completed transaction (like OTPs, reminders, promotional offers, payment due alerts, etc.) — such messages should be flagged appropriately.
+
+For identified transaction messages, extract the following structured metadata:
+  - message_id (from input)
+  - transaction_flag (True if it's a financial transaction, else False)
+  - amount
+  - type (credit / debit)
+  - from_account (payer's account, if available)
+  - to_account (beneficiary's account, if available)
+  - category (FOOD/GROCERIES/SHOPPING/TRANSPORTATION/ENTERTAINMENT/HEALTH/UTILITIES/INCOME/P2P TRANSFER/OTHER)
+  - reason (brief explanation for categorization)
+
+For non-transactional messages, keep other fields as "NA".
+Return your result as a valid JSON array, where each item maps to a message by its message_id.
 ''';
 
       print("📱 SMS_SERVICE: Gemini prompt created, calling API now");

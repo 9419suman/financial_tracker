@@ -103,12 +103,21 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
                 _getCategoryIcon(_message.category),
               ),
             ],
-            if (_message.isTransaction && _message.account != 'NA') ...[
+            if (_message.isTransaction && _message.from_account != 'NA') ...[
               const SizedBox(height: 16),
               _buildInfoCard(
                 context,
-                'Account',
-                _message.account,
+                'Payer\'s A/C',
+                _message.from_account,
+                Icons.account_balance_wallet,
+              ),
+            ],
+            if (_message.isTransaction && _message.to_account != 'NA') ...[
+              const SizedBox(height: 16),
+              _buildInfoCard(
+                context,
+                'Beneficiary\'s A/C',
+                _message.to_account,
                 Icons.account_balance,
               ),
             ],

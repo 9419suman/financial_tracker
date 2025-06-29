@@ -21,6 +21,7 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
   late final TextEditingController _amountController;
   late final TextEditingController _dateController;
   late final TextEditingController _typeController;
+  late final TextEditingController _fromAccountController;
   late final TextEditingController _toAccountController;
   late final TextEditingController _categoryController;
   late final TextEditingController _descriptionController;
@@ -34,7 +35,8 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
     _amountController = TextEditingController(text: widget.message.extractedAmountText);
     _dateController = TextEditingController(text: widget.message.transactionDate);
     _typeController = TextEditingController(text: widget.message.transactionType);
-    _toAccountController = TextEditingController(text: widget.message.account);  // Use account instead of toAccount
+    _fromAccountController = TextEditingController(text: widget.message.from_account);
+    _toAccountController = TextEditingController(text: widget.message.to_account);
     _categoryController = TextEditingController(text: widget.message.category);
     _descriptionController = TextEditingController(text: widget.message.description);
     _isTransaction = widget.message.isTransaction;
@@ -46,6 +48,7 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
     _amountController.dispose();
     _dateController.dispose();
     _typeController.dispose();
+    _fromAccountController.dispose();
     _toAccountController.dispose();
     _categoryController.dispose();
     _descriptionController.dispose();
@@ -120,14 +123,22 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
               label: 'Transaction Type',
               hint: 'Select transaction type',
               icon: Icons.swap_horiz,
-              options: ['CREDIT', 'DEBIT', 'TRANSFER', 'NA'],
+              options: ['CREDIT', 'DEBIT', 'TRANSFER'],
+            ),
+            
+            // From Account field
+            _buildTextField(
+              controller: _fromAccountController,
+              label: 'Payer\'s A/C',
+              hint: 'Enter payer\'s account',
+              icon: Icons.account_balance_wallet,
             ),
             
             // To Account field
             _buildTextField(
               controller: _toAccountController,
-              label: 'Account',
-              hint: 'Enter account or recipient',
+              label: 'Beneficiary\'s A/C',
+              hint: 'Enter beneficiary\'s account',
               icon: Icons.account_balance,
             ),
             
@@ -138,8 +149,8 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
               hint: 'Select category',
               icon: Icons.category,
               options: [
-                'FOOD', 'SHOPPING', 'TRANSPORTATION', 'ENTERTAINMENT',
-                'HEALTH', 'UTILITIES', 'INCOME', 'TRANSFER', 'OTHER', 'NA'
+                'FOOD', 'GROCERIES', 'SHOPPING', 'TRANSPORTATION', 'ENTERTAINMENT',
+                'HEALTH', 'UTILITIES', 'INCOME', 'P2P TRANSFER', 'OTHER'
               ],
             ),
             
@@ -246,6 +257,18 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
       dropdownOptions.add(controllerTextCapitalized);
     }
 
+    // Sort the dropdown options alphabetically
+    dropdownOptions.sort();
+
+    // Move "Other" to the end if present
+    final otherIndex =
+        dropdownOptions.indexWhere((opt) => opt.toLowerCase() == 'other');
+
+    if (otherIndex != -1) {
+      final otherOption = dropdownOptions.removeAt(otherIndex);
+      dropdownOptions.add(otherOption);
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: DropdownButtonFormField<String>(
@@ -318,9 +341,10 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
       isTransaction: _isTransaction,
       transactionDate: _dateController.text,
       transactionType: _typeController.text,
-      account: _toAccountController.text,  // Use account instead of toAccount
-      category: _categoryController.text,
+      from_account: _fromAccountController.text,
+      to_account: _toAccountController.text,
       reason: _descriptionController.text,  // Use reason parameter but keep using description in UI
+      category: _categoryController.text,
     );
 
     // Update the message in provider

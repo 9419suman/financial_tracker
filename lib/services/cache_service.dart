@@ -66,8 +66,9 @@ class CacheService {
           'is_transaction': message.isTransaction,
           'transaction_date': message.transactionDate,
           'transaction_type': message.transactionType,
-          'account': message.account,
-          'to_account': message.account,  // Keep to_account for backward compatibility
+          'from_account': message.from_account,
+          'to_account': message.to_account,
+          'account': message.to_account,  // Keep account for backward compatibility
           'category': message.category,
           'reason': message.reason,
           'description': message.reason,  // Keep description for backward compatibility
@@ -231,8 +232,9 @@ class CacheService {
               'is_transaction': message.isTransaction,
               'transaction_date': message.transactionDate,
               'transaction_type': message.transactionType,
-              'account': message.account,
-              'to_account': message.account,  // Keep to_account for backward compatibility
+              'from_account': message.from_account,
+              'to_account': message.to_account,
+              'account': message.to_account,  // Keep account for backward compatibility
               'category': message.category,
               'reason': message.reason,
               'description': message.reason,  // Keep description for backward compatibility
