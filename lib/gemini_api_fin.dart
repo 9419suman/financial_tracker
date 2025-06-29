@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class GeminiApiResponse {
   final bool success;
@@ -34,6 +35,15 @@ class GeminiApi {
     this.baseUrl = 'https://generativelanguage.googleapis.com/v1beta',
     this.model = 'gemini-2.5-flash',
   });
+  
+  // Factory constructor to create an instance from environment variables
+  factory GeminiApi.fromEnv() {
+    return GeminiApi(
+      apiKey: dotenv.env['GEMINI_API_KEY'] ?? '',
+      baseUrl: dotenv.env['GEMINI_BASE_URL'] ?? 'https://generativelanguage.googleapis.com/v1beta',
+      model: dotenv.env['GEMINI_MODEL'] ?? 'gemini-2.5-flash',
+    );
+  }
     Future<GeminiApiResponse> generateContent(String prompt) async {
     try {
       // Debug print statements with visible markers

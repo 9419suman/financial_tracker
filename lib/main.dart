@@ -2,13 +2,74 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import 'providers/message_provider.dart';
-import 'screens/home_screen.dart';
+import 'screens/transaction_dashboard_screen.dart';
 
 void main() async {
-  // Load environment variables
-  await dotenv.load(fileName: ".env");
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  try {
+    // First try to load from app documents directory
+    final directory = await getApplicationDocumentsDirectory();
+    final configFile = File('${directory.path}/financial_tracker_config.env');
+    
+    bool fileExists = false;
+    try {
+      fileExists = await configFile.exists();
+    } catch (e) {
+      // Ignore file existence check errors
+    }
+    
+    if (fileExists) {
+      try {
+        final String content = await configFile.readAsString();
+        
+        // Manually parse and load the config
+        final Map<String, String> envMap = {};
+        final lines = content.split('\n');
+        for (var line in lines) {
+          line = line.trim();
+          if (line.isEmpty || line.startsWith('#')) continue;
+          
+          final parts = line.split('=');
+          if (parts.length >= 2) {
+            final key = parts[0].trim();
+            final value = parts.sublist(1).join('=').trim();
+            envMap[key] = value;
+          }
+        }
+        
+        // Set the values in dotenv
+        dotenv.env.clear();
+        envMap.forEach((key, value) {
+          dotenv.env[key] = value;
+        });
+      } catch (e) {
+        // Try fallback approach
+        loadFallbackConfig();
+      }
+    } else {
+      // Try to load from bundled assets as fallback
+      loadFallbackConfig();
+    }
+  } catch (e) {
+    // Fallback on error
+    loadFallbackConfig();
+  }
+  
   runApp(const MyApp());
+}
+
+void loadFallbackConfig() {
+  try {
+    // Try to load from bundled asset
+    dotenv.load(fileName: ".env");
+  } catch (e) {
+    // Initialize with empty values
+    dotenv.env.clear();
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -35,7 +96,7 @@ class MyApp extends StatelessWidget {
             elevation: 0,
           ),
         ),
-        home: const HomeScreen(),
+        home: const TransactionDashboardScreen(),
       ),
     );
   }

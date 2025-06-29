@@ -60,6 +60,7 @@ dependencies:
 
   # For Indian Rupee symbol
   material_design_icons_flutter: ^7.0.7296
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

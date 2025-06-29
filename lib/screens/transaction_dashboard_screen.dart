@@ -5,15 +5,16 @@ import 'package:intl/intl.dart';
 import '../providers/message_provider.dart';
 import '../widgets/message_tile.dart';
 import 'message_detail_screen.dart';
+import 'config/config_screen.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+class TransactionDashboardScreen extends StatefulWidget {
+  const TransactionDashboardScreen({Key? key}) : super(key: key);
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<TransactionDashboardScreen> createState() => _TransactionDashboardScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _TransactionDashboardScreenState extends State<TransactionDashboardScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -34,12 +35,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {    return Scaffold(
+  Widget build(BuildContext context) {
+    return Scaffold(
       appBar: AppBar(
         title: FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
-            'Financial Tracker',
+            'Transaction Dashboard',
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.bold,
               color: Colors.white,
@@ -73,6 +75,58 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Financial Tracker',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Manage your finances',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.dashboard),
+              title: const Text('Dashboard'),
+              selected: true,
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Settings'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ConfigScreen()),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
       body: Column(
         children: [
           _buildDateFilter(context),
@@ -85,6 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+  
   Widget _buildDateFilter(BuildContext context) {
     final provider = Provider.of<MessageProvider>(context);
     final dateFormat = DateFormat('MMM dd, yyyy');
@@ -190,6 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+  
   Future<void> _selectDateRange(BuildContext context) async {
     final provider = Provider.of<MessageProvider>(context, listen: false);
     
@@ -323,7 +379,9 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
-  }  Widget _buildFilterBar(BuildContext context) {
+  }
+  
+  Widget _buildFilterBar(BuildContext context) {
     final provider = Provider.of<MessageProvider>(context);
     
     return Container(
@@ -351,7 +409,8 @@ class _HomeScreenState extends State<HomeScreen> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: [ChoiceChip(
+              children: [
+                ChoiceChip(
                   label: Text('All Messages'),
                   selected: provider.currentFilter == MessageFilter.all,
                   onSelected: (selected) {
@@ -427,7 +486,8 @@ class _HomeScreenState extends State<HomeScreen> {
               size: 64,
               color: Colors.grey.shade400,
             ),
-            const SizedBox(height: 16),            Text(
+            const SizedBox(height: 16),
+            Text(
               'No messages found',
               style: GoogleFonts.poppins(
                 fontSize: 18,

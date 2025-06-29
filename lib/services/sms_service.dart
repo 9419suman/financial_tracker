@@ -13,9 +13,8 @@ class SmsService {
   final CacheService _cacheService = CacheService();
   
   SmsService() {
-    // Initialize Gemini API with key from .env file
-    String apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
-    _geminiApi = GeminiApi(apiKey: apiKey);
+    // Initialize Gemini API from .env file
+    _geminiApi = GeminiApi.fromEnv();
   }
   
   // Request SMS permissions
