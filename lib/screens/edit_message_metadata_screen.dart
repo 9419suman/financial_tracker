@@ -34,7 +34,7 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
     _amountController = TextEditingController(text: widget.message.extractedAmountText);
     _dateController = TextEditingController(text: widget.message.transactionDate);
     _typeController = TextEditingController(text: widget.message.transactionType);
-    _toAccountController = TextEditingController(text: widget.message.toAccount);
+    _toAccountController = TextEditingController(text: widget.message.account);  // Use account instead of toAccount
     _categoryController = TextEditingController(text: widget.message.category);
     _descriptionController = TextEditingController(text: widget.message.description);
     _isTransaction = widget.message.isTransaction;
@@ -126,7 +126,7 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
             // To Account field
             _buildTextField(
               controller: _toAccountController,
-              label: 'To Account',
+              label: 'Account',
               hint: 'Enter account or recipient',
               icon: Icons.account_balance,
             ),
@@ -318,9 +318,9 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
       isTransaction: _isTransaction,
       transactionDate: _dateController.text,
       transactionType: _typeController.text,
-      toAccount: _toAccountController.text,
+      account: _toAccountController.text,  // Use account instead of toAccount
       category: _categoryController.text,
-      description: _descriptionController.text,
+      reason: _descriptionController.text,  // Use reason parameter but keep using description in UI
     );
 
     // Update the message in provider

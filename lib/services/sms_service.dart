@@ -144,9 +144,9 @@ class SmsService {
             isTransaction: cachedDict['is_transaction'] ?? false,
             transactionDate: cachedDict['transaction_date'] ?? 'NA',
             transactionType: cachedDict['transaction_type'] ?? 'NA',
-            toAccount: cachedDict['to_account'] ?? 'NA',
+            account: cachedDict['account'] ?? cachedDict['to_account'] ?? 'NA',  // Try account first, fall back to to_account
             category: cachedDict['category'] ?? 'NA',
-            description: cachedDict['description'] ?? 'NA',
+            reason: cachedDict['reason'] ?? cachedDict['description'] ?? 'NA',  // Try reason first, fall back to description
           );
           
           processedMessages.add(cachedMessage);
@@ -167,19 +167,21 @@ class SmsService {
         // Process only the messages that weren't in cache
       print("📱 SMS_SERVICE: Processing ${messagesToProcess.length} messages with Gemini");
       
-      // Create array of message bodies for messages that need processing
-      List<String> messageBodies = messagesToProcess.map((msg) => 
-          msg.message.body != null ? msg.message.body! : "").toList();
+      // Create array of message bodies with IDs for messages that need processing
+      List<Map<String, dynamic>> messageDataList = messagesToProcess.map((msg) => {
+        'id': msg.message.id.toString(),
+        'body': msg.message.body != null ? msg.message.body! : ""
+      }).toList();
       
-      print("📱 SMS_SERVICE: Message bodies prepared for Gemini");
+      print("📱 SMS_SERVICE: Message data prepared for Gemini with IDs");
       
       // Create prompt for Gemini API
       String prompt = '''
-You are expert in identifying and parsing bank (credit/debit/upi etc.) transaction. You are given the list of messages:
-Message List : ${jsonEncode(messageBodies)}
-Categorize each transaction and extract structured data as a list of transactions with: transaction_flag (True for bank transaction/ False for otherwise), date, amount, type (credit or debit), to_account, category, and description.
+You are expert in identifying and parsing bank (credit/debit/upi etc.) transaction. You are given the list of messages (with unique IDs) from SMS inbox. Your task is to identify bank transactions and extract structured data from them.:
+Message List : ${jsonEncode(messageDataList)}
+Categorize each transaction and extract structured data as a list of transactions with: message_id (from input), transaction_flag (True for bank transaction/ False for otherwise), amount, type (credit or debit), account, category, and reason for the categorisation.
 Note: Other fields for non financial (bank) transactions should be kept 'NA'
-Ensure that the order of structured output matches the order of array input for ease of parsing
+Return a valid JSON array where each item contains the message_id to enable proper mapping.
 ''';
 
       print("📱 SMS_SERVICE: Gemini prompt created, calling API now");
@@ -205,19 +207,29 @@ Ensure that the order of structured output matches the order of array input for 
         // Process new messages with Gemini data
         List<MessageWithAmount> newlyProcessedMessages = [];
         
-        // Match transactions with messages
-        for (int i = 0; i < messagesToProcess.length; i++) {
-          if (i < transactionData.length) {
-            print("📱 SMS_SERVICE: Processing message ${i+1}/${messagesToProcess.length}");
-            print("📱 SMS_SERVICE: Transaction data for message ${i+1}: ${transactionData[i]}");
+        // Create a map of transaction data by message ID for easier lookup
+        Map<String, dynamic> transactionDataByMessageId = {};
+        for (var transaction in transactionData) {
+          if (transaction['message_id'] != null) {
+            transactionDataByMessageId[transaction['message_id'].toString()] = transaction;
+          }
+        }
+        
+        // Match transactions with messages by message ID
+        for (var message in messagesToProcess) {
+          final String messageId = message.message.id.toString();
+          print("📱 SMS_SERVICE: Looking for transaction data for message ID: $messageId");
+          
+          if (transactionDataByMessageId.containsKey(messageId)) {
+            print("📱 SMS_SERVICE: Found transaction data for message ID: $messageId");
             
             newlyProcessedMessages.add(
-              MessageWithAmount.fromGeminiResponse(messagesToProcess[i].message, transactionData[i])
+              MessageWithAmount.fromGeminiResponse(message.message, transactionDataByMessageId[messageId])
             );
           } else {
-            // If we have more messages than transactions, use original message
-            print("📱 SMS_SERVICE: ⚠️ No transaction data for message ${i+1}, using original");
-            newlyProcessedMessages.add(messagesToProcess[i]);
+            // If we don't have transaction data for this message, use original message
+            print("📱 SMS_SERVICE: ⚠️ No transaction data for message ID: $messageId, using original");
+            newlyProcessedMessages.add(message);
           }
         }
         

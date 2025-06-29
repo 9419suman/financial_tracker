@@ -66,9 +66,11 @@ class CacheService {
           'is_transaction': message.isTransaction,
           'transaction_date': message.transactionDate,
           'transaction_type': message.transactionType,
-          'to_account': message.toAccount,
+          'account': message.account,
+          'to_account': message.account,  // Keep to_account for backward compatibility
           'category': message.category,
-          'description': message.description,
+          'reason': message.reason,
+          'description': message.reason,  // Keep description for backward compatibility
         };
         
         final String jsonString = jsonEncode(data);
@@ -229,9 +231,11 @@ class CacheService {
               'is_transaction': message.isTransaction,
               'transaction_date': message.transactionDate,
               'transaction_type': message.transactionType,
-              'to_account': message.toAccount,
+              'account': message.account,
+              'to_account': message.account,  // Keep to_account for backward compatibility
               'category': message.category,
-              'description': message.description,
+              'reason': message.reason,
+              'description': message.reason,  // Keep description for backward compatibility
             };
             
             final String updatedJsonString = jsonEncode(updatedData);

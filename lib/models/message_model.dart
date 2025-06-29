@@ -11,9 +11,9 @@ class MessageWithAmount {
   final bool isTransaction;
   final String transactionDate;
   final String transactionType;
-  final String toAccount;
+  final String account;  // Changed from toAccount
   final String category;
-  final String description;
+  final String reason;  // Primary field for reason/description
 
   MessageWithAmount({
     required this.message,
@@ -23,10 +23,19 @@ class MessageWithAmount {
     this.isTransaction = false,
     this.transactionDate = 'NA',
     this.transactionType = 'NA',
-    this.toAccount = 'NA',
+    this.account = 'NA',  // Changed from toAccount
+    String? toAccount,    // Added for backward compatibility
     this.category = 'NA',
-    this.description = 'NA',
+    this.reason = 'NA',
+    String? description,  // Optional parameter for backward compatibility
   });
+  
+  // Getter for backward compatibility
+  String get description => reason;
+  
+  // Getter for backward compatibility
+  String get toAccount => account;
+
   // Factory method to create a MessageWithAmount from an SmsMessage
   factory MessageWithAmount.fromSmsMessage(SmsMessage message) {
     return MessageWithAmount(
@@ -70,9 +79,9 @@ class MessageWithAmount {
       isTransaction: geminiData['transaction_flag'] ?? false,
       transactionDate: geminiData['date'] ?? 'NA',
       transactionType: geminiData['type'] ?? 'NA',
-      toAccount: geminiData['to_account'] ?? 'NA',
+      account: geminiData['account'] ?? geminiData['to_account'] ?? 'NA',  // Try account first, fall back to to_account
       category: geminiData['category'] ?? 'NA',
-      description: geminiData['description'] ?? 'NA',
+      reason: geminiData['reason'] ?? geminiData['description'] ?? 'NA',  // Try reason first, fall back to description
     );
   }
   
@@ -85,9 +94,11 @@ class MessageWithAmount {
     bool? isTransaction,
     String? transactionDate,
     String? transactionType,
-    String? toAccount,
+    String? account,
+    String? toAccount,  // Added for backward compatibility
     String? category,
-    String? description,
+    String? reason,
+    String? description,  // Added for backward compatibility
   }) {
     return MessageWithAmount(
       message: message ?? this.message,
@@ -97,9 +108,9 @@ class MessageWithAmount {
       isTransaction: isTransaction ?? this.isTransaction,
       transactionDate: transactionDate ?? this.transactionDate,
       transactionType: transactionType ?? this.transactionType,
-      toAccount: toAccount ?? this.toAccount,
+      account: account ?? toAccount ?? this.account,  // Use account if provided, then toAccount, then fall back to current account
       category: category ?? this.category,
-      description: description ?? this.description,
+      reason: reason ?? description ?? this.reason,  // Use reason if provided, then description, then fall back to current reason
     );
   }
 
