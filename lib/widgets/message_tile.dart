@@ -91,18 +91,22 @@ class MessageTile extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: message.transactionType.toLowerCase() == 'credit' 
-                            ? Colors.green.shade100 
-                            : Colors.red.shade100,
+                        color: message.transactionType.toLowerCase() == 'transfer'
+                            ? Colors.orange.shade100
+                            : message.transactionType.toLowerCase() == 'credit' 
+                                ? Colors.green.shade100 
+                                : Colors.red.shade100,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         message.formattedAmount ?? '',
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.bold,
-                          color: message.transactionType.toLowerCase() == 'credit' 
-                              ? Colors.green.shade800 
-                              : Colors.red.shade800,
+                          color: message.transactionType.toLowerCase() == 'transfer'
+                              ? Colors.orange.shade800
+                              : message.transactionType.toLowerCase() == 'credit' 
+                                  ? Colors.green.shade800 
+                                  : Colors.red.shade800,
                         ),
                       ),
                     ),

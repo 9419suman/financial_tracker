@@ -213,21 +213,31 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
     bool isAmount = false,
     bool isCredit = true,
   }) {
+    // Handle transfer transactions with orange color
+    final String transactionType = _message.transactionType.toLowerCase();
+    final bool isTransfer = transactionType == 'transfer';
+    
     final Color iconBgColor = isAmount || (title == 'Transaction Type')
-        ? isCredit 
-            ? Colors.green.shade100
-            : Colors.red.shade100
+        ? isTransfer
+            ? Colors.orange.shade100
+            : isCredit 
+                ? Colors.green.shade100
+                : Colors.red.shade100
         : Theme.of(context).colorScheme.primary.withOpacity(0.1);
     
     final Color iconColor = isAmount || (title == 'Transaction Type')
-        ? isCredit
-            ? Colors.green.shade800
-            : Colors.red.shade800
+        ? isTransfer
+            ? Colors.orange.shade800
+            : isCredit
+                ? Colors.green.shade800
+                : Colors.red.shade800
         : Theme.of(context).colorScheme.primary;
       final Color? textColor = isAmount || (title == 'Transaction Type')
-        ? isCredit
-            ? Colors.green.shade800
-            : Colors.red.shade800
+        ? isTransfer
+            ? Colors.orange.shade800
+            : isCredit
+                ? Colors.green.shade800
+                : Colors.red.shade800
         : null;
     
     return Card(
