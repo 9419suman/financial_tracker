@@ -27,10 +27,16 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
   }
 
   void _loadCurrentValues() {
+    print('🔄 TRANSACTION_MAPPING: Loading current values...');
+    print('🔄 TRANSACTION_MAPPING: All env vars: ${dotenv.env.keys.toList()}');
+    
     // Load My Accounts
     final myAccounts = dotenv.env['MY_ACCOUNTS'] ?? '';
+    print('🔄 TRANSACTION_MAPPING: MY_ACCOUNTS value: "$myAccounts"');
+    
     if (myAccounts.isNotEmpty) {
       final accounts = myAccounts.split(',');
+      print('🔄 TRANSACTION_MAPPING: Parsed accounts: $accounts');
       for (var account in accounts) {
         _accountControllers.add(TextEditingController(text: account.trim()));
       }
@@ -43,9 +49,12 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
     
     // Load Known Parties
     final knownPartiesJson = dotenv.env['KNOWN_PARTIES'] ?? '';
+    print('🔄 TRANSACTION_MAPPING: KNOWN_PARTIES value: "$knownPartiesJson"');
+    
     if (knownPartiesJson.isNotEmpty) {
       try {
         final List<dynamic> parties = json.decode(knownPartiesJson);
+        print('🔄 TRANSACTION_MAPPING: Parsed known parties: $parties');
         for (var party in parties) {
           _knownParties.add(KnownParty(
             name: party['name'] ?? '',
@@ -54,7 +63,7 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
         }
       } catch (e) {
         // Handle parsing error
-        print('Error parsing known parties: $e');
+        print('❌ TRANSACTION_MAPPING: Error parsing known parties: $e');
       }
     }
     
@@ -62,6 +71,8 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
     if (_knownParties.isEmpty) {
       _knownParties.add(KnownParty(name: '', label: ''));
     }
+    
+    print('🔄 TRANSACTION_MAPPING: Loaded ${_accountControllers.length} accounts and ${_knownParties.length} known parties');
   }
   
   void _addAccount() {
@@ -92,8 +103,12 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
   Future<void> _saveSettings() async {
     if (_formKey.currentState!.validate()) {
       try {
+        print('💾 TRANSACTION_MAPPING: Starting save process...');
+        print('💾 TRANSACTION_MAPPING: Current env vars before save: ${dotenv.env.keys.toList()}');
+        
         // Create or update the environment map
         final Map<String, String> envMap = Map<String, String>.from(dotenv.env);
+        print('💾 TRANSACTION_MAPPING: envMap created with ${envMap.length} variables');
 
         // Update My Accounts
         final accounts = _accountControllers
@@ -101,6 +116,7 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
             .where((text) => text.isNotEmpty)
             .join(',');
         
+        print('💾 TRANSACTION_MAPPING: MY_ACCOUNTS to save: "$accounts"');
         envMap['MY_ACCOUNTS'] = accounts;
         
         // Update Known Parties
@@ -115,7 +131,10 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
           }).toList()
         );
         
+        print('💾 TRANSACTION_MAPPING: KNOWN_PARTIES to save: "$knownPartiesJson"');
         envMap['KNOWN_PARTIES'] = knownPartiesJson;
+
+        print('💾 TRANSACTION_MAPPING: Final envMap has ${envMap.length} variables: ${envMap.keys.toList()}');
 
         // Write to file
         await _writeEnvFile(envMap);
@@ -126,6 +145,7 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
 
         Navigator.pop(context);
       } catch (e) {
+        print('❌ TRANSACTION_MAPPING: Error saving settings: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error saving settings: $e')),
         );
@@ -134,6 +154,8 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
   }
 
   Future<void> _writeEnvFile(Map<String, String> envMap) async {
+    print('📝 TRANSACTION_MAPPING: Writing env file with ${envMap.length} variables');
+    
     final sb = StringBuffer();
     
     // Write each key-value pair
@@ -141,9 +163,13 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
       sb.writeln('$key=$value');
     });
     
+    final content = sb.toString();
+    print('📝 TRANSACTION_MAPPING: File content to write:\n$content');
+    
     try {
       // Write to file
       final directory = await getApplicationDocumentsDirectory();
+      print('📝 TRANSACTION_MAPPING: Documents directory: ${directory.path}');
       
       // Make sure the directory exists
       if (!await directory.exists()) {
@@ -151,16 +177,25 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
       }
       
       final file = File('${directory.path}/financial_tracker_config.env');
+      print('📝 TRANSACTION_MAPPING: Writing to file: ${file.path}');
       
       // Write the file with explicit flags
-      await file.writeAsString(sb.toString(), flush: true);
+      await file.writeAsString(content, flush: true);
+      
+      // Verify the file was written
+      final verifyContent = await file.readAsString();
+      print('📝 TRANSACTION_MAPPING: File verification - length: ${verifyContent.length}');
       
       // Update the env vars in memory
+      print('📝 TRANSACTION_MAPPING: Updating in-memory env vars');
       dotenv.env.clear(); // Clear existing env vars
       envMap.forEach((key, value) {
         dotenv.env[key] = value; // Set values directly in memory
       });
+      
+      print('📝 TRANSACTION_MAPPING: Final in-memory env vars: ${dotenv.env.keys.toList()}');
     } catch (e) {
+      print('❌ TRANSACTION_MAPPING: Error writing file: $e');
       // Still update in-memory values even if file write fails
       dotenv.env.clear();
       envMap.forEach((key, value) {

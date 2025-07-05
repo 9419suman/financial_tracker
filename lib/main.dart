@@ -11,24 +11,42 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
+    print('🚀 MAIN: Starting app initialization...');
+    
+    // Initialize dotenv first - this ensures dotenv.env is accessible
+    try {
+      // Try to load from .env file first
+      await dotenv.load();
+      print('🔄 MAIN: Successfully loaded bundled .env file');
+    } catch (e) {
+      // If no .env file exists, initialize with empty content using testLoad
+      print('🔄 MAIN: No .env file found, initializing with empty environment: $e');
+      dotenv.testLoad(fileInput: '');
+    }
+    
     // First try to load from app documents directory
     final directory = await getApplicationDocumentsDirectory();
     final configFile = File('${directory.path}/financial_tracker_config.env');
+    print('🚀 MAIN: Config file path: ${configFile.path}');
     
     bool fileExists = false;
     try {
       fileExists = await configFile.exists();
+      print('🚀 MAIN: Config file exists: $fileExists');
     } catch (e) {
-      // Ignore file existence check errors
+      print('❌ MAIN: Error checking file existence: $e');
     }
     
     if (fileExists) {
       try {
         final String content = await configFile.readAsString();
+        print('🚀 MAIN: Config file content (${content.length} chars):\n$content');
         
         // Manually parse and load the config
         final Map<String, String> envMap = {};
         final lines = content.split('\n');
+        print('🚀 MAIN: Processing ${lines.length} lines');
+        
         for (var line in lines) {
           line = line.trim();
           if (line.isEmpty || line.startsWith('#')) continue;
@@ -38,23 +56,31 @@ void main() async {
             final key = parts[0].trim();
             final value = parts.sublist(1).join('=').trim();
             envMap[key] = value;
+            print('🚀 MAIN: Loaded env var: $key = ${value.length > 50 ? value.substring(0, 50) + '...' : value}');
           }
         }
+        
+        print('🚀 MAIN: Parsed ${envMap.length} environment variables');
         
         // Set the values in dotenv
         dotenv.env.clear();
         envMap.forEach((key, value) {
           dotenv.env[key] = value;
         });
+        
+        print('🚀 MAIN: Final env vars in memory: ${dotenv.env.keys.toList()}');
       } catch (e) {
+        print('❌ MAIN: Error reading config file: $e');
         // Try fallback approach
         loadFallbackConfig();
       }
     } else {
+      print('🚀 MAIN: Config file does not exist, trying fallback');
       // Try to load from bundled assets as fallback
       loadFallbackConfig();
     }
   } catch (e) {
+    print('❌ MAIN: Error during initialization: $e');
     // Fallback on error
     loadFallbackConfig();
   }
@@ -64,11 +90,14 @@ void main() async {
 
 void loadFallbackConfig() {
   try {
+    print('🔄 MAIN: Loading fallback config from bundled .env file');
     // Try to load from bundled asset
     dotenv.load(fileName: ".env");
+    print('🔄 MAIN: Fallback config loaded, env vars: ${dotenv.env.keys.toList()}');
   } catch (e) {
-    // Initialize with empty values
-    dotenv.env.clear();
+    print('❌ MAIN: Error loading fallback config: $e');
+    print('🔄 MAIN: Initializing with empty environment using testLoad');
+    dotenv.testLoad(fileInput: '');
   }
 }
 

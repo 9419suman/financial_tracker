@@ -246,6 +246,7 @@ IMPORTANT RULES:
 3. If from_account is user's account, it's typically a "debit" transaction
 4. If to_account is user's account, it's typically a "credit" transaction
 5. Match account names flexibly (partial matches are okay for similar names)
+6. Exceptions: Dont consider credit card bill payments as transactions as credit card spends (included in the final bill) are previously tagged as transactions
 
 For non-transactional messages, keep other fields as "NA".
 Return your result as a valid JSON array, where each item maps to a message by its message_id.
