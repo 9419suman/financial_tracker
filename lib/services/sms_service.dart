@@ -17,6 +17,34 @@ class SmsService {
     _geminiApi = GeminiApi.fromEnv();
   }
   
+  // Extract user accounts from environment variables
+  List<String> _extractMyAccounts() {
+    final myAccounts = dotenv.env['MY_ACCOUNTS'] ?? '';
+    if (myAccounts.isEmpty) {
+      return [];
+    }
+    return myAccounts.split(',').map((account) => account.trim()).where((account) => account.isNotEmpty).toList();
+  }
+  
+  // Extract known parties from environment variables
+  List<Map<String, String>> _extractKnownParties() {
+    final knownPartiesJson = dotenv.env['KNOWN_PARTIES'] ?? '';
+    if (knownPartiesJson.isEmpty) {
+      return [];
+    }
+    
+    try {
+      final List<dynamic> parties = jsonDecode(knownPartiesJson);
+      return parties.map((party) => {
+        'name': party['name']?.toString() ?? '',
+        'label': party['label']?.toString() ?? '',
+      }).where((party) => party['name']!.isNotEmpty).toList();
+    } catch (e) {
+      print('📱 SMS_SERVICE: ❌ Error parsing known parties: $e');
+      return [];
+    }
+  }
+  
   // Request SMS permissions
   Future<bool> requestSmsPermission() async {
     var status = await Permission.sms.status;
@@ -176,25 +204,48 @@ class SmsService {
       
       print("📱 SMS_SERVICE: Message data prepared for Gemini with IDs");
       
-      // Create prompt for Gemini API
+      // Extract user configuration for better categorization
+      final myAccounts = _extractMyAccounts();
+      final knownParties = _extractKnownParties();
+      
+      print("📱 SMS_SERVICE: Using ${myAccounts.length} user accounts and ${knownParties.length} known parties for categorization");
+      
+      // Create enhanced prompt for Gemini API
       String prompt = '''
 You are an expert in identifying and parsing personal financial transactions (bank/credit card/UPI/etc.) from SMS messages. You are given a list of messages (with unique IDs) from a user's SMS inbox.
 
 Message List : ${jsonEncode(messageDataList)}
 
+${myAccounts.isNotEmpty ? '''
+USER'S ACCOUNTS (these belong to the user):
+${myAccounts.map((account) => '- $account').join('\n')}
+''' : ''}
+
+${knownParties.isNotEmpty ? '''
+KNOWN PARTIES (for consistent categorization):
+${knownParties.map((party) => '- ${party['name']} (Label: ${party['label']})').join('\n')}
+''' : ''}
+
 Your task is to:
-  Identify messages that reflect actual personal financial transactions (e.g., money credited, debited, or transferred via UPI or banking channels).
-  Exclude messages that do not indicate a completed transaction (like OTPs, reminders, promotional offers, payment due alerts, etc.) — such messages should be flagged appropriately.
+1. Identify messages that reflect actual personal financial transactions (e.g., money credited, debited, or transferred via UPI or banking channels).
+2. Exclude messages that do not indicate a completed transaction (like OTPs, reminders, promotional offers, payment due alerts, etc.) — such messages should be flagged appropriately.
 
 For identified transaction messages, extract the following structured metadata:
-  - message_id (from input)
-  - transaction_flag (True if it's a financial transaction, else False)
-  - amount
-  - type (credit / debit)
-  - from_account (payer's account, if available)
-  - to_account (beneficiary's account, if available)
-  - category (FOOD/GROCERIES/SHOPPING/TRANSPORTATION/ENTERTAINMENT/HEALTH/UTILITIES/INCOME/P2P TRANSFER/OTHER)
-  - reason (brief explanation for categorization)
+- message_id (from input)
+- transaction_flag (True if it's a financial transaction, else False)
+- amount
+- type (credit / debit / transfer)
+- from_account (payer's account, if available)
+- to_account (beneficiary's account, if available)
+- category (FOOD/GROCERIES/SHOPPING/TRANSPORTATION/ENTERTAINMENT/HEALTH/UTILITIES/INCOME/P2P TRANSFER/OTHER)
+- reason (brief explanation for categorization)
+
+IMPORTANT RULES:
+1. If BOTH from_account and to_account are in the user's accounts list, set type as "transfer"
+2. For known parties, use the configured label for consistent categorization
+3. If from_account is user's account, it's typically a "debit" transaction
+4. If to_account is user's account, it's typically a "credit" transaction
+5. Match account names flexibly (partial matches are okay for similar names)
 
 For non-transactional messages, keep other fields as "NA".
 Return your result as a valid JSON array, where each item maps to a message by its message_id.
