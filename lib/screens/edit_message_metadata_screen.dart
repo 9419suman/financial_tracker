@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/message_model.dart';
 import '../providers/message_provider.dart';
+import '../widgets/add_party_dialog.dart';
 
 class EditMessageMetadataScreen extends StatefulWidget {
   final MessageWithAmount message;
@@ -26,10 +27,14 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
   late final TextEditingController _categoryController;
   late final TextEditingController _descriptionController;
   late bool _isTransaction;
+  late MessageWithAmount _currentMessage;
 
   @override
   void initState() {
     super.initState();
+    
+    // Initialize current message
+    _currentMessage = widget.message;
     
     // Initialize controllers with current values
     _amountController = TextEditingController(text: widget.message.extractedAmountText);
@@ -126,20 +131,22 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
               options: ['CREDIT', 'DEBIT', 'TRANSFER'],
             ),
             
-            // From Account field
-            _buildTextField(
+            // From Account field with add party option
+            _buildAccountField(
               controller: _fromAccountController,
               label: 'Payer\'s A/C',
               hint: 'Enter payer\'s account',
               icon: Icons.account_balance_wallet,
+              accountType: 'payer',
             ),
             
-            // To Account field
-            _buildTextField(
+            // To Account field with add party option
+            _buildAccountField(
               controller: _toAccountController,
               label: 'Beneficiary\'s A/C',
               hint: 'Enter beneficiary\'s account',
               icon: Icons.account_balance,
+              accountType: 'beneficiary',
             ),
             
             // Category dropdown
@@ -231,6 +238,47 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
     );
   }
 
+  Widget _buildAccountField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required String accountType,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          prefixIcon: Icon(icon),
+          suffixIcon: controller.text.isNotEmpty
+              ? IconButton(
+                  icon: Icon(
+                    Icons.person_add,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  onPressed: () => _showAddPartyDialog(accountType),
+                  tooltip: 'Add to Known Parties/My Accounts',
+                )
+              : null,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        ),
+        style: GoogleFonts.poppins(
+          fontSize: 16,
+        ),
+        onChanged: (value) {
+          // Trigger rebuild to show/hide the add party button
+          setState(() {});
+        },
+      ),
+    );
+  }
+
 
   Widget _buildDropdownField({
     required TextEditingController controller,
@@ -305,6 +353,38 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
   }
 
 
+
+  void _showAddPartyDialog(String accountType) {
+    final accountName = accountType == 'payer' 
+        ? _fromAccountController.text.trim()
+        : _toAccountController.text.trim();
+    
+    if (accountName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please enter the ${accountType == 'payer' ? 'payer\'s' : 'beneficiary\'s'} account first'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AddPartyDialog(
+        accountName: accountName,
+        accountType: accountType,
+        message: _currentMessage,
+        onMessageUpdated: (updatedMessage) {
+          setState(() {
+            _currentMessage = updatedMessage;
+            _categoryController.text = updatedMessage.category;
+          });
+        },
+      ),
+    );
+  }
 
   void _saveChanges() async {
     // Parse amount to double if possible

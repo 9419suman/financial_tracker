@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/message_model.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'edit_message_metadata_screen.dart';
+import '../widgets/add_party_dialog.dart';
 
 class MessageDetailScreen extends StatefulWidget {
   final MessageWithAmount message;
@@ -105,20 +106,22 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
             ],
             if (_message.isTransaction && _message.from_account != 'NA') ...[
               const SizedBox(height: 16),
-              _buildInfoCard(
+              _buildAccountInfoCard(
                 context,
                 'Payer\'s A/C',
                 _message.from_account,
                 Icons.account_balance_wallet,
+                'payer',
               ),
             ],
             if (_message.isTransaction && _message.to_account != 'NA') ...[
               const SizedBox(height: 16),
-              _buildInfoCard(
+              _buildAccountInfoCard(
                 context,
                 'Beneficiary\'s A/C',
                 _message.to_account,
                 Icons.account_balance,
+                'beneficiary',
               ),
             ],
             if (_message.isTransaction && _message.description != 'NA') ...[
@@ -203,6 +206,85 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
     } else {
       return Icons.category;
     }
+  }
+
+  Widget _buildAccountInfoCard(
+    BuildContext context,
+    String title,
+    String value,
+    IconData icon,
+    String accountType,
+  ) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  Text(
+                    value,
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.person_add,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              onPressed: () => _showAddPartyDialog(value, accountType),
+              tooltip: 'Add to Known Parties/My Accounts',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddPartyDialog(String accountName, String accountType) {
+    showDialog(
+      context: context,
+      builder: (context) => AddPartyDialog(
+        accountName: accountName,
+        accountType: accountType,
+        message: _message,
+        onMessageUpdated: (updatedMessage) {
+          setState(() {
+            _message = updatedMessage;
+          });
+        },
+      ),
+    );
   }
 
   Widget _buildInfoCard(

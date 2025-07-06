@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
+import '../../services/account_service.dart';
 
 class TransactionMappingScreen extends StatefulWidget {
   const TransactionMappingScreen({Key? key}) : super(key: key);
@@ -13,6 +14,7 @@ class TransactionMappingScreen extends StatefulWidget {
 
 class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
   final _formKey = GlobalKey<FormState>();
+  final AccountService _accountService = AccountService();
   
   // For My Accounts
   final List<TextEditingController> _accountControllers = [];
@@ -28,18 +30,13 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
 
   void _loadCurrentValues() {
     print('🔄 TRANSACTION_MAPPING: Loading current values...');
-    print('🔄 TRANSACTION_MAPPING: All env vars: ${dotenv.env.keys.toList()}');
     
-    // Load My Accounts
-    final myAccounts = dotenv.env['MY_ACCOUNTS'] ?? '';
-    print('🔄 TRANSACTION_MAPPING: MY_ACCOUNTS value: "$myAccounts"');
+    // Load My Accounts using AccountService
+    final myAccounts = _accountService.getMyAccounts();
+    print('🔄 TRANSACTION_MAPPING: Loaded ${myAccounts.length} accounts');
     
-    if (myAccounts.isNotEmpty) {
-      final accounts = myAccounts.split(',');
-      print('🔄 TRANSACTION_MAPPING: Parsed accounts: $accounts');
-      for (var account in accounts) {
-        _accountControllers.add(TextEditingController(text: account.trim()));
-      }
+    for (var account in myAccounts) {
+      _accountControllers.add(TextEditingController(text: account));
     }
     
     // If there are no accounts saved yet, start with one empty field
@@ -47,25 +44,11 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
       _accountControllers.add(TextEditingController());
     }
     
-    // Load Known Parties
-    final knownPartiesJson = dotenv.env['KNOWN_PARTIES'] ?? '';
-    print('🔄 TRANSACTION_MAPPING: KNOWN_PARTIES value: "$knownPartiesJson"');
+    // Load Known Parties using AccountService
+    final knownParties = _accountService.getKnownParties();
+    print('🔄 TRANSACTION_MAPPING: Loaded ${knownParties.length} known parties');
     
-    if (knownPartiesJson.isNotEmpty) {
-      try {
-        final List<dynamic> parties = json.decode(knownPartiesJson);
-        print('🔄 TRANSACTION_MAPPING: Parsed known parties: $parties');
-        for (var party in parties) {
-          _knownParties.add(KnownParty(
-            name: party['name'] ?? '',
-            label: party['label'] ?? '',
-          ));
-        }
-      } catch (e) {
-        // Handle parsing error
-        print('❌ TRANSACTION_MAPPING: Error parsing known parties: $e');
-      }
-    }
+    _knownParties.addAll(knownParties);
     
     // If there are no known parties saved yet, start with one empty field
     if (_knownParties.isEmpty) {
@@ -415,12 +398,4 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
   }
 }
 
-class KnownParty {
-  String name;
-  String label;
-  
-  KnownParty({
-    required this.name,
-    required this.label,
-  });
-}
+
