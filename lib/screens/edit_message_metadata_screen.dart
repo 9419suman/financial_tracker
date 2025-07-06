@@ -239,22 +239,21 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
     required IconData icon,
     required List<String> options,
   }) {
-    // Capitalize function
-    String capitalize(String s) =>
-        s.isNotEmpty ? s[0].toUpperCase() + s.substring(1).toLowerCase() : '';
+    // Uppercase function
+    String toUpperCase(String s) => s.toUpperCase();
 
-    // Capitalized controller text
-    final controllerTextCapitalized = capitalize(controller.text);
+    // Uppercase controller text
+    final controllerTextUppercase = toUpperCase(controller.text);
 
-    // Make a local list with capitalized options
+    // Make a local list with uppercase options
     final List<String> dropdownOptions =
-        options.map((opt) => capitalize(opt)).toSet().toList();
+        options.map((opt) => toUpperCase(opt)).toSet().toList();
 
     // Add controller text if not already present (case-insensitively)
     if (controller.text.isNotEmpty &&
         !dropdownOptions
             .any((opt) => opt.toLowerCase() == controller.text.toLowerCase())) {
-      dropdownOptions.add(controllerTextCapitalized);
+      dropdownOptions.add(controllerTextUppercase);
     }
 
     // Sort the dropdown options alphabetically
@@ -272,7 +271,7 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: DropdownButtonFormField<String>(
-        value: controllerTextCapitalized.isEmpty ? null : controllerTextCapitalized,
+        value: controllerTextUppercase.isEmpty ? null : controllerTextUppercase,
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,

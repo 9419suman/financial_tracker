@@ -89,7 +89,7 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
               _buildInfoCard(
                 context,
                 'Transaction Type',
-                _message.transactionType,
+                _message.transactionType.toUpperCase(),
                 Icons.swap_horiz,
                 isCredit: _message.transactionType.toLowerCase() == 'credit',
               ),
@@ -99,7 +99,7 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
               _buildInfoCard(
                 context,
                 'Category',
-                _message.category,
+                _message.category.toUpperCase(),
                 _getCategoryIcon(_message.category),
               ),
             ],

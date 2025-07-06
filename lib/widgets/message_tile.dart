@@ -123,7 +123,7 @@ class MessageTile extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        message.category,
+                        message.category.toUpperCase(),
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -139,7 +139,7 @@ class MessageTile extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            message.transactionType,
+                            message.transactionType.toUpperCase(),
                             style: GoogleFonts.poppins(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,

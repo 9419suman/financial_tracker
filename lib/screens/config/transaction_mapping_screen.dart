@@ -127,7 +127,7 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
         final knownPartiesJson = json.encode(
           validKnownParties.map((party) => {
             'name': party.name,
-            'label': party.label,
+            'label': party.label.toUpperCase(),
           }).toList()
         );
         
