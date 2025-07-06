@@ -101,6 +101,18 @@ class MessageProvider extends ChangeNotifier {
       _messages = await _smsService.processMessagesWithGemini(dateFilteredMessages);
       print("📅 MESSAGE_PROVIDER: Processed ${_messages.length} messages with Gemini");
       
+      // Sort main messages list by date in descending order (newest first)
+      _messages.sort((a, b) {
+        // Handle null dates by putting them at the end
+        if (a.message.date == null && b.message.date == null) return 0;
+        if (a.message.date == null) return 1;
+        if (b.message.date == null) return -1;
+        
+        // Sort in descending order (newest first)
+        return b.message.date!.compareTo(a.message.date!);
+      });
+      print("📅 MESSAGE_PROVIDER: Main messages sorted by date (newest first)");
+      
       _applyFilters();
     } catch (e) {
       print('📅 MESSAGE_PROVIDER: ❌ Error loading messages: $e');
@@ -170,7 +182,19 @@ class MessageProvider extends ChangeNotifier {
       print("🔍 MESSAGE_PROVIDER: After bank transactions filter: ${_filteredMessages.length} messages");
     }
     
-  print("🔍 MESSAGE_PROVIDER: Final filtered messages count: ${_filteredMessages.length}");
+    // Sort messages by date in descending order (newest first)
+    _filteredMessages.sort((a, b) {
+      // Handle null dates by putting them at the end
+      if (a.message.date == null && b.message.date == null) return 0;
+      if (a.message.date == null) return 1;
+      if (b.message.date == null) return -1;
+      
+      // Sort in descending order (newest first)
+      return b.message.date!.compareTo(a.message.date!);
+    });
+    print("🔍 MESSAGE_PROVIDER: Messages sorted by date (newest first)");
+    
+    print("🔍 MESSAGE_PROVIDER: Final filtered messages count: ${_filteredMessages.length}");
     notifyListeners();
   }
   
@@ -229,7 +253,22 @@ class MessageProvider extends ChangeNotifier {
         }
       }
       
-      print("📝 MESSAGE_PROVIDER: ✅ Message update complete");
+      // Re-sort both lists to maintain proper order after update
+      _messages.sort((a, b) {
+        if (a.message.date == null && b.message.date == null) return 0;
+        if (a.message.date == null) return 1;
+        if (b.message.date == null) return -1;
+        return b.message.date!.compareTo(a.message.date!);
+      });
+      
+      _filteredMessages.sort((a, b) {
+        if (a.message.date == null && b.message.date == null) return 0;
+        if (a.message.date == null) return 1;
+        if (b.message.date == null) return -1;
+        return b.message.date!.compareTo(a.message.date!);
+      });
+      
+      print("📝 MESSAGE_PROVIDER: ✅ Message update complete and lists re-sorted");
       return true;
     } catch (e) {
       print("📝 MESSAGE_PROVIDER: ❌ Error updating message: $e");
