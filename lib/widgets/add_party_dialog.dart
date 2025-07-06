@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/account_service.dart';
 import '../providers/message_provider.dart';
 import '../models/message_model.dart';
+import '../utils/constants.dart';
 
 class AddPartyDialog extends StatefulWidget {
   final String accountName;
@@ -541,7 +542,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
         if (_selectedAction == 'known_party') ...[
           const SizedBox(height: 20),
           Text(
-            'Category Label',
+            'Category',
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -549,16 +550,31 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
             ),
           ),
           const SizedBox(height: 8),
-          TextField(
-            controller: _labelController,
+          DropdownButtonFormField<String>(
+            value: _labelController.text.isEmpty ? null : _labelController.text.toUpperCase(),
             decoration: InputDecoration(
-              hintText: 'e.g., grocery, family, utilities',
+              hintText: 'Select category',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
-            style: GoogleFonts.poppins(fontSize: 14),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: Colors.black,
+            ),
+            items: AppConstants.transactionCategories.map((String category) {
+              return DropdownMenuItem<String>(
+                value: category,
+                child: Text(
+                  category,
+                  style: GoogleFonts.poppins(fontSize: 14),
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {
+              _labelController.text = value ?? '';
+            },
           ),
         ],
       ],
@@ -633,7 +649,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
         if (_selectedAction == 'known_party') {
           final label = _labelController.text.trim();
           if (label.isEmpty) {
-            _showError('Please enter a category label');
+            _showError('Please select a category');
             return;
           }
           success = await _accountService.addKnownParty(name, label);

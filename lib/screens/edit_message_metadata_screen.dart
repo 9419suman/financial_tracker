@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/message_model.dart';
 import '../providers/message_provider.dart';
 import '../widgets/add_party_dialog.dart';
+import '../utils/constants.dart';
 
 class EditMessageMetadataScreen extends StatefulWidget {
   final MessageWithAmount message;
@@ -155,10 +156,7 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
               label: 'Category',
               hint: 'Select category',
               icon: Icons.category,
-              options: [
-                'FOOD', 'GROCERIES', 'SHOPPING', 'TRANSPORTATION', 'ENTERTAINMENT',
-                'HEALTH', 'UTILITIES', 'INCOME', 'P2P TRANSFER', 'OTHER'
-              ],
+              options: AppConstants.transactionCategories,
             ),
             
             // Description field

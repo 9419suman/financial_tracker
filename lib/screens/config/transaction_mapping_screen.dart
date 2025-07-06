@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
 import '../../services/account_service.dart';
+import '../../utils/constants.dart';
 
 class TransactionMappingScreen extends StatefulWidget {
   const TransactionMappingScreen({Key? key}) : super(key: key);
@@ -377,17 +378,27 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              TextFormField(
-                initialValue: _knownParties[index].label,
+              DropdownButtonFormField<String>(
+                value: _knownParties[index].label.isEmpty ? null : _knownParties[index].label.toUpperCase(),
                 decoration: const InputDecoration(
-                  labelText: 'Label',
-                  hintText: 'Enter a label (e.g., "grocery", "family")',
+                  labelText: 'Category',
+                  hintText: 'Select category',
                   border: OutlineInputBorder(),
                 ),
+                items: AppConstants.transactionCategories.map((String category) {
+                  return DropdownMenuItem<String>(
+                    value: category,
+                    child: Text(category),
+                  );
+                }).toList(),
                 onChanged: (value) {
                   setState(() {
-                    _knownParties[index].label = value;
+                    _knownParties[index].label = value ?? '';
                   });
+                },
+                validator: (value) {
+                  // Category can be empty (party will be ignored), so no validation needed
+                  return null;
                 },
               ),
             ],
