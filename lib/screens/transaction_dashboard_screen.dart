@@ -6,6 +6,7 @@ import '../providers/message_provider.dart';
 import '../widgets/message_tile.dart';
 import 'message_detail_screen.dart';
 import 'config/config_screen.dart';
+import 'bank_statement_screen.dart';
 
 class TransactionDashboardScreen extends StatefulWidget {
   const TransactionDashboardScreen({Key? key}) : super(key: key);
@@ -111,6 +112,17 @@ class _TransactionDashboardScreenState extends State<TransactionDashboardScreen>
               selected: true,
               onTap: () {
                 Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.account_balance),
+              title: const Text('Bank Statements'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const BankStatementScreen()),
+                );
               },
             ),
             ListTile(

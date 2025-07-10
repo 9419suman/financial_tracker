@@ -61,6 +61,36 @@ dependencies:
   # For Indian Rupee symbol
   material_design_icons_flutter: ^7.0.7296
   path_provider: ^2.1.5
+  
+  # Bank Statement Parser Dependencies
+  # Google Sign In for Gmail authentication
+  google_sign_in: ^6.2.1
+  # For secure storage of tokens
+  flutter_secure_storage: ^9.0.0
+  # For handling Gmail API responses
+  googleapis: ^12.0.0
+  # For handling authentication flow
+  googleapis_auth: ^1.4.1
+  # URL launcher to open authorization links
+  url_launcher: ^6.2.4
+  # For SVG rendering
+  flutter_svg: ^2.0.10+1
+  # For opening PDFs
+  open_file: ^3.3.2
+  # For PDF processing
+  pdf: ^3.10.4
+  # For additional cryptography support
+  crypto: ^3.0.3
+  # For viewing PDFs within the app
+  flutter_pdfview: ^1.2.7
+  # For charts and visualizations
+  fl_chart: ^0.65.0
+  # For sharing files
+  share_plus: ^7.2.1
+  # For PDF decryption and manipulation
+  syncfusion_flutter_pdf: ^24.2.3
+  # For file picking
+  file_picker: ^8.0.0+1
 
 dev_dependencies:
   flutter_test:
