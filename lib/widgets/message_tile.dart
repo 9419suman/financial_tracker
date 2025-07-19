@@ -161,22 +161,33 @@ class MessageTile extends StatelessWidget {
   IconData _getCategoryIcon(String category) {
     final lowerCategory = category.toLowerCase();
     
-    if (lowerCategory.contains('food') || lowerCategory.contains('restaurant') || lowerCategory.contains('dining')) {
+    // Map new category names to appropriate icons
+    if (lowerCategory.contains('food') || lowerCategory.contains('dining') || lowerCategory.contains('restaurant')) {
       return Icons.restaurant;
-    } else if (lowerCategory.contains('shopping') || lowerCategory.contains('purchase')) {
+    } else if (lowerCategory.contains('shopping') || lowerCategory.contains('personal care') || lowerCategory.contains('purchase')) {
       return Icons.shopping_bag;
-    } else if (lowerCategory.contains('travel') || lowerCategory.contains('transport')) {
+    } else if (lowerCategory.contains('transportation') || lowerCategory.contains('travel') || lowerCategory.contains('transport')) {
       return Icons.directions_car;
-    } else if (lowerCategory.contains('entertainment')) {
+    } else if (lowerCategory.contains('entertainment') || lowerCategory.contains('subscriptions')) {
       return Icons.movie;
-    } else if (lowerCategory.contains('health') || lowerCategory.contains('medical')) {
+    } else if (lowerCategory.contains('health') || lowerCategory.contains('insurance') || lowerCategory.contains('medical')) {
       return Icons.medical_services;
-    } else if (lowerCategory.contains('utility') || lowerCategory.contains('bill')) {
+    } else if (lowerCategory.contains('housing') || lowerCategory.contains('utilities') || lowerCategory.contains('utility') || lowerCategory.contains('bill')) {
       return Icons.receipt;
     } else if (lowerCategory.contains('salary') || lowerCategory.contains('income')) {
       return Icons.account_balance_wallet;
-    } else if (lowerCategory.contains('transfer')) {
+    } else if (lowerCategory.contains('transfer') || lowerCategory.contains('gifts')) {
       return Icons.swap_horiz;
+    } else if (lowerCategory.contains('investment') || lowerCategory.contains('savings')) {
+      return Icons.savings;
+    } else if (lowerCategory.contains('financial services') || lowerCategory.contains('fees')) {
+      return Icons.account_balance;
+    } else if (lowerCategory.contains('interest') || lowerCategory.contains('dividends')) {
+      return Icons.trending_up;
+    } else if (lowerCategory.contains('refunds') || lowerCategory.contains('cashback')) {
+      return Icons.money_off;
+    } else if (lowerCategory.contains('miscellaneous')) {
+      return Icons.category;
     } else {
       return Icons.category;
     }

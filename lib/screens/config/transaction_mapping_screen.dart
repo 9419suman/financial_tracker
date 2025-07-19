@@ -529,7 +529,7 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
                 ),
                 items: AppConstants.transactionCategories.map((String category) {
                   return DropdownMenuItem<String>(
-                    value: category,
+                    value: category.toUpperCase(),
                     child: Text(category),
                   );
                 }).toList(),
@@ -710,7 +710,7 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
                 ),
                 items: AppConstants.transactionCategories.map((String category) {
                   return DropdownMenuItem<String>(
-                    value: category,
+                    value: category.toUpperCase(),
                     child: Text(category),
                   );
                 }).toList(),
@@ -790,7 +790,7 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
             ),
             items: AppConstants.transactionCategories.map((String category) {
               return DropdownMenuItem<String>(
-                value: category,
+                value: category.toUpperCase(),
                 child: Text(category),
               );
             }).toList(),

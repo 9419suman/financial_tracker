@@ -565,7 +565,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
             ),
             items: AppConstants.transactionCategories.map((String category) {
               return DropdownMenuItem<String>(
-                value: category,
+                value: category.toUpperCase(),
                 child: Text(
                   category,
                   style: GoogleFonts.poppins(fontSize: 14),

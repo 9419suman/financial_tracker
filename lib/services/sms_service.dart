@@ -2,10 +2,13 @@ import 'dart:convert';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/message_model.dart';
 import '../gemini_api_fin.dart';
 import 'cache_service.dart';
+import '../services/account_service.dart';
+import '../utils/constants.dart';
 
 class SmsService {
   final SmsQuery _query = SmsQuery();
@@ -237,7 +240,7 @@ For identified transaction messages, extract the following structured metadata:
 - type (credit / debit / transfer)
 - from_account (payer's account, if available)
 - to_account (beneficiary's account, if available)
-- category (FOOD/GROCERIES/SHOPPING/TRANSPORTATION/ENTERTAINMENT/HEALTH/UTILITIES/INCOME/P2P TRANSFER/OTHER)
+- category (${AppConstants.transactionCategories.map((category) => category.toUpperCase()).join('/')})
 - reason (brief explanation for categorization)
 
 IMPORTANT RULES:
