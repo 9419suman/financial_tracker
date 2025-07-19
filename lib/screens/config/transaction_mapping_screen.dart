@@ -527,10 +527,14 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
                   hintText: 'Select category',
                   border: OutlineInputBorder(),
                 ),
-                items: AppConstants.transactionCategories.map((String category) {
+                isExpanded: true,
+                items: AppConstants.allCategories.map((String category) {
                   return DropdownMenuItem<String>(
                     value: category.toUpperCase(),
-                    child: Text(category),
+                    child: Text(
+                      category,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -708,10 +712,14 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
                   hintText: 'Select category',
                   border: OutlineInputBorder(),
                 ),
-                items: AppConstants.transactionCategories.map((String category) {
+                isExpanded: true,
+                items: AppConstants.allCategories.map((String category) {
                   return DropdownMenuItem<String>(
                     value: category.toUpperCase(),
-                    child: Text(category),
+                    child: Text(
+                      category,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -788,10 +796,14 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
               hintText: 'Select category',
               border: OutlineInputBorder(),
             ),
-            items: AppConstants.transactionCategories.map((String category) {
+            isExpanded: true,
+            items: AppConstants.allCategories.map((String category) {
               return DropdownMenuItem<String>(
                 value: category.toUpperCase(),
-                child: Text(category),
+                child: Text(
+                  category,
+                  overflow: TextOverflow.ellipsis,
+                ),
               );
             }).toList(),
             onChanged: (value) {
