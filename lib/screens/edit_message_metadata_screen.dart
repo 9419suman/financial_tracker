@@ -124,12 +124,24 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
             ),
             
             // Transaction Type dropdown
-            _buildDropdownField(
+            _buildEnhancedDropdownField(
               controller: _typeController,
               label: 'Transaction Type',
               hint: 'Select transaction type',
               icon: Icons.swap_horiz,
               options: ['CREDIT', 'DEBIT', 'TRANSFER'],
+              onChanged: (value) {
+                setState(() {
+                  _typeController.text = value ?? '';
+                  // Auto-suggest category if type changed and category is empty
+                  if (_categoryController.text.isEmpty && value != null) {
+                    final suggestions = AppConstants.getCategoriesByType(value);
+                    if (suggestions.isNotEmpty) {
+                      // Don't auto-select, just refresh the dropdown
+                    }
+                  }
+                });
+              },
             ),
             
             // From Account field with add party option
@@ -150,13 +162,13 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
               accountType: 'beneficiary',
             ),
             
-            // Category dropdown
-            _buildDropdownField(
+            // Category dropdown with dynamic options based on transaction type
+            _buildSmartDropdownField(
               controller: _categoryController,
               label: 'Category',
               hint: 'Select category',
               icon: Icons.category,
-              options: AppConstants.transactionCategories,
+              transactionTypeController: _typeController,
             ),
             
             // Description field
@@ -278,12 +290,13 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
   }
 
 
-  Widget _buildDropdownField({
+  Widget _buildEnhancedDropdownField({
     required TextEditingController controller,
     required String label,
     required String hint,
     required IconData icon,
     required List<String> options,
+    Function(String?)? onChanged,
   }) {
     // Uppercase function
     String toUpperCase(String s) => s.toUpperCase();
@@ -305,15 +318,6 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
     // Sort the dropdown options alphabetically
     dropdownOptions.sort();
 
-    // Move "Other" to the end if present
-    final otherIndex =
-        dropdownOptions.indexWhere((opt) => opt.toLowerCase() == 'other');
-
-    if (otherIndex != -1) {
-      final otherOption = dropdownOptions.removeAt(otherIndex);
-      dropdownOptions.add(otherOption);
-    }
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: DropdownButtonFormField<String>(
@@ -327,29 +331,127 @@ class _EditMessageMetadataScreenState extends State<EditMessageMetadataScreen> {
           ),
           contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         ),
-        dropdownColor: Colors.white,  // add this
+        dropdownColor: Colors.white,
         style: GoogleFonts.poppins(
           fontSize: 16,
-          color: Colors.black,        // add this
+          color: Colors.black,
         ),
+        isExpanded: true,
         items: dropdownOptions.map((String value) {
           return DropdownMenuItem<String>(
             value: value,
             child: Text(
               value,
-              style: const TextStyle(color: Colors.black),  // force visible text
+              style: const TextStyle(color: Colors.black),
+              overflow: TextOverflow.ellipsis,
             ),
           );
         }).toList(),
         onChanged: (newValue) {
           if (newValue != null) {
             controller.text = newValue;
+            if (onChanged != null) {
+              onChanged(newValue);
+            }
           }
         },
       ),
     );
   }
 
+  Widget _buildSmartDropdownField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required TextEditingController transactionTypeController,
+  }) {
+    // Get appropriate categories based on transaction type
+    List<String> availableCategories = AppConstants.getCategoriesByType(transactionTypeController.text);
+    
+    // If no specific type is selected, show all categories
+    if (availableCategories.isEmpty) {
+      availableCategories = AppConstants.allCategories;
+    }
+    
+    // Uppercase function
+    String toUpperCase(String s) => s.toUpperCase();
+
+    // Uppercase controller text
+    final controllerTextUppercase = toUpperCase(controller.text);
+
+    // Make a local list with uppercase options
+    final List<String> dropdownOptions =
+        availableCategories.map((opt) => toUpperCase(opt)).toSet().toList();
+
+    // Add controller text if not already present (case-insensitively)
+    if (controller.text.isNotEmpty &&
+        !dropdownOptions
+            .any((opt) => opt.toLowerCase() == controller.text.toLowerCase())) {
+      dropdownOptions.add(controllerTextUppercase);
+    }
+
+    // Sort the dropdown options alphabetically
+    dropdownOptions.sort();
+
+    // Create helper text for transaction type info
+    final String typeInfo = transactionTypeController.text.isNotEmpty 
+        ? '${transactionTypeController.text.toUpperCase()} categories'
+        : 'All categories';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: DropdownButtonFormField<String>(
+        value: controllerTextUppercase.isEmpty ? null : controllerTextUppercase,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          helperText: typeInfo,
+          helperStyle: GoogleFonts.poppins(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+          ),
+          prefixIcon: Icon(icon),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        ),
+        dropdownColor: Colors.white,
+        style: GoogleFonts.poppins(
+          fontSize: 16,
+          color: Colors.black,
+        ),
+        isExpanded: true,
+        items: dropdownOptions.map((String value) {
+          return DropdownMenuItem<String>(
+            value: value,
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.black),
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        }).toList(),
+        onChanged: (newValue) {
+          if (newValue != null) {
+            setState(() {
+              controller.text = newValue;
+              // Auto-update transaction type based on category selection
+              _updateTransactionTypeFromCategory(newValue);
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  void _updateTransactionTypeFromCategory(String category) {
+    final suggestedType = AppConstants.getTransactionTypeFromCategory(category);
+    if (_typeController.text.isEmpty || _typeController.text == 'NA') {
+      _typeController.text = suggestedType.toUpperCase();
+    }
+  }
 
 
   void _showAddPartyDialog(String accountType) {

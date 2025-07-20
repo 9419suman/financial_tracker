@@ -554,6 +554,12 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
             value: _labelController.text.isEmpty ? null : _labelController.text.toUpperCase(),
             decoration: InputDecoration(
               hintText: 'Select category',
+              labelText: 'Category',
+              helperText: '${widget.message.transactionType.toUpperCase()} - ${widget.accountType.toUpperCase()}',
+              helperStyle: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -563,12 +569,14 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
               fontSize: 14,
               color: Colors.black,
             ),
-            items: AppConstants.transactionCategories.map((String category) {
+            isExpanded: true,
+            items: _getAppropriateCategories().map((String category) {
               return DropdownMenuItem<String>(
-                value: category,
+                value: category.toUpperCase(),
                 child: Text(
                   category,
                   style: GoogleFonts.poppins(fontSize: 14),
+                  overflow: TextOverflow.ellipsis,
                 ),
               );
             }).toList(),
@@ -603,7 +611,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _selectedAction == 'known_party' ? 'Known Parties' : 'My Accounts',
+                  _selectedAction == 'known_party' ? 'Smart Category Selection' : 'My Accounts',
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -613,7 +621,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
                 const SizedBox(height: 4),
                 Text(
                   _selectedAction == 'known_party'
-                      ? 'Adding to Known Parties will automatically set the transaction category based on the party\'s label.'
+                      ? _getCategoryExplanation()
                       : 'Adding to My Accounts will help identify your own accounts in future transactions.',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
@@ -627,6 +635,47 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
         ],
       ),
     );
+  }
+
+  List<String> _getAppropriateCategories() {
+    final transactionType = widget.message.transactionType.toLowerCase();
+    final isPayerAccount = widget.accountType == 'payer';
+    
+    // Logic for showing appropriate categories:
+    // - Debit transaction: money going OUT from user
+    //   - Payer = user's account, Beneficiary = external (show EXPENSE categories)
+    // - Credit transaction: money coming IN to user  
+    //   - Payer = external (show INCOME categories), Beneficiary = user's account
+    // - Transfer: both are user's accounts (show only Transfers & Gifts)
+    
+    if (transactionType == 'debit' && !isPayerAccount) {
+      // Debit transaction, Beneficiary account -> Expense categories
+      return AppConstants.transactionCategories['EXPENSE'] ?? [];
+    } else if (transactionType == 'credit' && isPayerAccount) {
+      // Credit transaction, Payer account -> Income categories  
+      return AppConstants.transactionCategories['INCOME'] ?? [];
+    } else if (transactionType == 'transfer') {
+      // Transfer transaction -> Only Transfers & Gifts
+      return ['Transfers & Gifts'];
+    } else {
+      // Fallback: show all categories if logic doesn't match
+      return AppConstants.allCategories;
+    }
+  }
+
+  String _getCategoryExplanation() {
+    final transactionType = widget.message.transactionType.toLowerCase();
+    final isPayerAccount = widget.accountType == 'payer';
+    
+    if (transactionType == 'debit' && !isPayerAccount) {
+      return 'Showing expense categories because this is money going out to the beneficiary.';
+    } else if (transactionType == 'credit' && isPayerAccount) {
+      return 'Showing income categories because this is money coming in from the payer.';
+    } else if (transactionType == 'transfer') {
+      return 'Showing transfer category because this is a transfer between accounts.';
+    } else {
+      return 'Showing all categories as transaction type could not be determined.';
+    }
   }
 
   Future<void> _handleSave() async {

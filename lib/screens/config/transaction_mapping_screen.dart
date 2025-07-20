@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:path_provider/path_provider.dart';
 import '../../services/account_service.dart';
 import '../../utils/constants.dart';
@@ -22,6 +23,18 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
   
   // For Known Parties
   final List<KnownParty> _knownParties = [];
+
+  // Expansion state for sections
+  bool _isAccountsExpanded = false;
+  bool _isKnownPartiesExpanded = false;
+
+  // Temporary entry controllers for adding new items
+  final TextEditingController _tempAccountController = TextEditingController();
+  bool _showTempAccount = false;
+  
+  // Temporary known party for adding new items
+  KnownParty? _tempKnownParty;
+  bool _showTempKnownParty = false;
 
   @override
   void initState() {
@@ -61,7 +74,29 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
   
   void _addAccount() {
     setState(() {
-      _accountControllers.add(TextEditingController());
+      _showTempAccount = true;
+      _tempAccountController.clear();
+    });
+  }
+
+  void _saveTempAccount() {
+    if (_tempAccountController.text.trim().isNotEmpty) {
+      setState(() {
+        _accountControllers.add(TextEditingController(text: _tempAccountController.text.trim()));
+        _showTempAccount = false;
+        _tempAccountController.clear();
+        // Auto-expand if we're adding beyond the default view
+        if (_accountControllers.length > 3) {
+          _isAccountsExpanded = true;
+        }
+      });
+    }
+  }
+
+  void _cancelTempAccount() {
+    setState(() {
+      _showTempAccount = false;
+      _tempAccountController.clear();
     });
   }
   
@@ -74,7 +109,29 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
   
   void _addKnownParty() {
     setState(() {
-      _knownParties.add(KnownParty(name: '', label: ''));
+      _showTempKnownParty = true;
+      _tempKnownParty = KnownParty(name: '', label: '');
+    });
+  }
+
+  void _saveTempKnownParty() {
+    if (_tempKnownParty != null && _tempKnownParty!.name.trim().isNotEmpty) {
+      setState(() {
+        _knownParties.add(KnownParty(name: _tempKnownParty!.name.trim(), label: _tempKnownParty!.label));
+        _showTempKnownParty = false;
+        _tempKnownParty = null;
+        // Auto-expand if we're adding beyond the default view
+        if (_knownParties.length > 3) {
+          _isKnownPartiesExpanded = true;
+        }
+      });
+    }
+  }
+
+  void _cancelTempKnownParty() {
+    setState(() {
+      _showTempKnownParty = false;
+      _tempKnownParty = null;
     });
   }
   
@@ -196,6 +253,7 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
     for (var controller in _accountControllers) {
       controller.dispose();
     }
+    _tempAccountController.dispose();
     super.dispose();
   }
 
@@ -229,16 +287,58 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       const Text(
                         'Add your bank accounts, UPI IDs, credit cards, etc.',
                         style: TextStyle(color: Colors.grey),
                       ),
+                      
+                      if (_accountControllers.length > 3 && !_isAccountsExpanded)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            'Showing 3 of ${_accountControllers.length} items',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      
                       const SizedBox(height: 16),
                       
-                      ..._buildAccountFields(),
+                      ..._buildAccountFieldsWithFade(),
                       
-                      const SizedBox(height: 16),
+                      // Temporary account entry widget
+                      if (_showTempAccount) _buildTempAccountWidget(),
+                      
+                      // Show All/Show Less button positioned above Add Account
+                      if (_accountControllers.length > 3)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Center(
+                            child: TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _isAccountsExpanded = !_isAccountsExpanded;
+                                });
+                              },
+                              icon: Icon(
+                                _isAccountsExpanded ? Icons.expand_less : Icons.expand_more,
+                              ),
+                              label: Text(
+                                _isAccountsExpanded 
+                                  ? 'Show Less' 
+                                  : 'Show All (${_accountControllers.length})',
+                              ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      
+                      const SizedBox(height: 8),
                       ElevatedButton.icon(
                         onPressed: _addAccount,
                         icon: const Icon(Icons.add),
@@ -269,16 +369,58 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       const Text(
                         'Add people or merchants you transact with frequently',
                         style: TextStyle(color: Colors.grey),
                       ),
+                      
+                      if (_knownParties.length > 3 && !_isKnownPartiesExpanded)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            'Showing 3 of ${_knownParties.length} items',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      
                       const SizedBox(height: 16),
                       
-                      ..._buildKnownPartyFields(),
+                      ..._buildKnownPartyFieldsWithFade(),
                       
-                      const SizedBox(height: 16),
+                      // Temporary known party entry widget
+                      if (_showTempKnownParty) _buildTempKnownPartyWidget(),
+                      
+                      // Show All/Show Less button positioned above Add Known Party
+                      if (_knownParties.length > 3)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Center(
+                            child: TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _isKnownPartiesExpanded = !_isKnownPartiesExpanded;
+                                });
+                              },
+                              icon: Icon(
+                                _isKnownPartiesExpanded ? Icons.expand_less : Icons.expand_more,
+                              ),
+                              label: Text(
+                                _isKnownPartiesExpanded 
+                                  ? 'Show Less' 
+                                  : 'Show All (${_knownParties.length})',
+                              ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      
+                      const SizedBox(height: 8),
                       ElevatedButton.icon(
                         onPressed: _addKnownParty,
                         icon: const Icon(Icons.add),
@@ -385,10 +527,14 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
                   hintText: 'Select category',
                   border: OutlineInputBorder(),
                 ),
-                items: AppConstants.transactionCategories.map((String category) {
+                isExpanded: true,
+                items: AppConstants.allCategories.map((String category) {
                   return DropdownMenuItem<String>(
-                    value: category,
-                    child: Text(category),
+                    value: category.toUpperCase(),
+                    child: Text(
+                      category,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -404,6 +550,290 @@ class _TransactionMappingScreenState extends State<TransactionMappingScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  List<Widget> _buildAccountFieldsWithFade() {
+    final totalFields = _accountControllers.length;
+    final visibleCount = _isAccountsExpanded ? totalFields : math.min(3, totalFields);
+    
+    return List.generate(visibleCount, (index) {
+      // Apply gradual fade effect to the last visible item when not expanded and there are more items
+      final shouldFade = !_isAccountsExpanded && totalFields > 3 && index == 2;
+      
+      Widget field = Padding(
+        padding: const EdgeInsets.only(bottom: 8.0),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _accountControllers[index],
+                decoration: InputDecoration(
+                  labelText: 'Account ${index + 1}',
+                  hintText: 'Enter account identifier',
+                  border: const OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  return null;
+                },
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () => _removeAccount(index),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldFade) {
+        return Stack(
+          children: [
+            field,
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withOpacity(0.0),
+                      Colors.white.withOpacity(0.3),
+                      Colors.white.withOpacity(0.7),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+      
+      return field;
+    });
+  }
+
+  Widget _buildTempAccountWidget() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.blue, width: 2),
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.blue.withOpacity(0.05),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _tempAccountController,
+                  decoration: const InputDecoration(
+                    labelText: 'New Account',
+                    hintText: 'Enter account identifier',
+                    border: OutlineInputBorder(),
+                  ),
+                  autofocus: true,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: _cancelTempAccount,
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _saveTempAccount,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildKnownPartyFieldsWithFade() {
+    final totalFields = _knownParties.length;
+    final visibleCount = _isKnownPartiesExpanded ? totalFields : math.min(3, totalFields);
+    
+    return List.generate(visibleCount, (index) {
+      // Apply gradual fade effect to the last visible item when not expanded and there are more items
+      final shouldFade = !_isKnownPartiesExpanded && totalFields > 3 && index == 2;
+      
+      Widget field = Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      initialValue: _knownParties[index].name,
+                      decoration: const InputDecoration(
+                        labelText: 'Name',
+                        hintText: 'Enter name',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _knownParties[index].name = value;
+                        });
+                      },
+                      validator: (value) {
+                        return null;
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => _removeKnownParty(index),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _knownParties[index].label.isEmpty ? null : _knownParties[index].label.toUpperCase(),
+                decoration: const InputDecoration(
+                  labelText: 'Category',
+                  hintText: 'Select category',
+                  border: OutlineInputBorder(),
+                ),
+                isExpanded: true,
+                items: AppConstants.allCategories.map((String category) {
+                  return DropdownMenuItem<String>(
+                    value: category.toUpperCase(),
+                    child: Text(
+                      category,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _knownParties[index].label = value ?? '';
+                  });
+                },
+                validator: (value) {
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (shouldFade) {
+        return Stack(
+          children: [
+            field,
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withOpacity(0.0),
+                      Colors.white.withOpacity(0.3),
+                      Colors.white.withOpacity(0.7),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+      
+      return field;
+    });
+  }
+
+  Widget _buildTempKnownPartyWidget() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.blue, width: 2),
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.blue.withOpacity(0.05),
+      ),
+      child: Column(
+        children: [
+          TextFormField(
+            initialValue: _tempKnownParty?.name ?? '',
+            decoration: const InputDecoration(
+              labelText: 'New Known Party Name',
+              hintText: 'Enter name',
+              border: OutlineInputBorder(),
+            ),
+            autofocus: true,
+            onChanged: (value) {
+              if (_tempKnownParty != null) {
+                _tempKnownParty!.name = value;
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: _tempKnownParty?.label?.isEmpty ?? true ? null : _tempKnownParty!.label.toUpperCase(),
+            decoration: const InputDecoration(
+              labelText: 'Category',
+              hintText: 'Select category',
+              border: OutlineInputBorder(),
+            ),
+            isExpanded: true,
+            items: AppConstants.allCategories.map((String category) {
+              return DropdownMenuItem<String>(
+                value: category.toUpperCase(),
+                child: Text(
+                  category,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {
+              if (_tempKnownParty != null) {
+                setState(() {
+                  _tempKnownParty!.label = value ?? '';
+                });
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: _cancelTempKnownParty,
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _saveTempKnownParty,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

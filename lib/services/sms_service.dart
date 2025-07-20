@@ -2,10 +2,13 @@ import 'dart:convert';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/message_model.dart';
 import '../gemini_api_fin.dart';
 import 'cache_service.dart';
+import '../services/account_service.dart';
+import '../utils/constants.dart';
 
 class SmsService {
   final SmsQuery _query = SmsQuery();
@@ -237,16 +240,17 @@ For identified transaction messages, extract the following structured metadata:
 - type (credit / debit / transfer)
 - from_account (payer's account, if available)
 - to_account (beneficiary's account, if available)
-- category (FOOD/GROCERIES/SHOPPING/TRANSPORTATION/ENTERTAINMENT/HEALTH/UTILITIES/INCOME/P2P TRANSFER/OTHER)
+- category (EXPENSE CATEGORIES: ${AppConstants.transactionCategories['EXPENSE']?.map((c) => c.toUpperCase()).join('/')} | INCOME CATEGORIES: ${AppConstants.transactionCategories['INCOME']?.map((c) => c.toUpperCase()).join('/')})
 - reason (brief explanation for categorization)
 
 IMPORTANT RULES:
-1. If BOTH from_account and to_account are in the user's accounts list, set type as "transfer"
+1. If BOTH from_account and to_account are in the user's accounts list, set type as "transfer" and category as "TRANSFERS & GIFTS"
 2. For known parties, use the configured label for consistent categorization
-3. If from_account is user's account, it's typically a "debit" transaction
-4. If to_account is user's account, it's typically a "credit" transaction
-5. Match account names flexibly (partial matches are okay for similar names)
-6. Exceptions: Dont consider credit card bill payments as transactions as credit card spends (included in the final bill) are previously tagged as transactions
+3. If transaction involves money going out (debit), use EXPENSE categories
+4. If transaction involves money coming in (credit), use INCOME categories
+5. Always use "TRANSFERS & GIFTS" category for transfer transactions
+6. Match account names flexibly (partial matches are okay for similar names)
+7. Exceptions: Dont consider credit card bill payments as transactions as credit card spends (included in the final bill) are previously tagged as transactions
 
 For non-transactional messages, keep other fields as "NA".
 Return your result as a valid JSON array, where each item maps to a message by its message_id.
