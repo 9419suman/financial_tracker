@@ -1,9 +1,16 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/message_model.dart';
+import '../models/bank_transaction.dart';
+import '../models/analysis_result.dart';
 
 class CacheService {
   static const String _cacheKey = 'processed_messages_cache';  // Save processed messages to cache
+  static const String _bankStatementCacheKey = 'processed_bank_statements_cache';
+
+  // --- EXISTING SMS CACHING METHODS ---
+  
+  // Save processed messages to cache
   Future<bool> saveProcessedMessages(List<MessageWithAmount> messages) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -304,6 +311,171 @@ class CacheService {
     } catch (e) {
       print('💾 CACHE_SERVICE: ❌ Error retrieving specific message from cache: $e');
       return null;
+    }
+  }
+
+  // --- NEW BANK STATEMENT CACHING METHODS ---
+  
+  // Generate a unique cache key for a bank statement based on email and attachment info
+  String _generateBankStatementCacheKey(String emailId, String attachmentId, String filename) {
+    // Create a unique identifier combining email ID, attachment ID, and filename
+    final identifier = '${emailId}_${attachmentId}_${filename}';
+    print('🏦 CACHE_SERVICE: Generated cache key: $identifier');
+    return identifier;
+  }
+  
+  // Save processed bank statement to cache
+  Future<bool> saveBankStatementResult({
+    required String emailId,
+    required String attachmentId,
+    required String filename,
+    required AnalysisResult result,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheKey = _generateBankStatementCacheKey(emailId, attachmentId, filename);
+      
+      // Get existing bank statement cache
+      final Map<String, String> existingCache = await _getBankStatementCache();
+      print('🏦 CACHE_SERVICE: Found ${existingCache.length} existing bank statement cache entries');
+      
+      // Create cache data structure
+      final Map<String, dynamic> cacheData = {
+        'cache_key': cacheKey,
+        'email_id': emailId,
+        'attachment_id': attachmentId,
+        'filename': filename,
+        'cached_at': DateTime.now().millisecondsSinceEpoch,
+        'transactions': result.transactions.map((t) => t.toJson()).toList(),
+        'usage_metadata': result.usageMetadata,
+        'transaction_count': result.transactions.length,
+      };
+      
+      final String jsonString = jsonEncode(cacheData);
+      
+      // Add to existing cache
+      existingCache[cacheKey] = jsonString;
+      
+      // Save back to SharedPreferences as a list of values
+      final List<String> cacheList = existingCache.values.toList();
+      await prefs.setStringList(_bankStatementCacheKey, cacheList);
+      
+      print('🏦 CACHE_SERVICE: ✅ Saved bank statement to cache: $cacheKey with ${result.transactions.length} transactions');
+      return true;
+    } catch (e) {
+      print('🏦 CACHE_SERVICE: ❌ Error saving bank statement to cache: $e');
+      return false;
+    }
+  }
+  
+  // Get cached bank statement result
+  Future<AnalysisResult?> getCachedBankStatementResult({
+    required String emailId,
+    required String attachmentId,
+    required String filename,
+  }) async {
+    try {
+      final cacheKey = _generateBankStatementCacheKey(emailId, attachmentId, filename);
+      final Map<String, String> cache = await _getBankStatementCache();
+      
+      if (!cache.containsKey(cacheKey)) {
+        print('🏦 CACHE_SERVICE: No cached result found for: $cacheKey');
+        return null;
+      }
+      
+      final Map<String, dynamic> cacheData = jsonDecode(cache[cacheKey]!);
+      
+      // Convert transactions back from JSON
+      final List<BankTransaction> transactions = (cacheData['transactions'] as List)
+          .map((json) => BankTransaction.fromJson(json))
+          .toList();
+      
+      final Map<String, dynamic> usageMetadata = cacheData['usage_metadata'] ?? {};
+      
+      print('🏦 CACHE_SERVICE: ✅ Retrieved cached bank statement: $cacheKey with ${transactions.length} transactions');
+      
+      return AnalysisResult(
+        transactions: transactions,
+        usageMetadata: usageMetadata,
+      );
+    } catch (e) {
+      print('🏦 CACHE_SERVICE: ❌ Error retrieving cached bank statement: $e');
+      return null;
+    }
+  }
+  
+  // Check if a bank statement is cached
+  Future<bool> isBankStatementCached({
+    required String emailId,
+    required String attachmentId,
+    required String filename,
+  }) async {
+    try {
+      final cacheKey = _generateBankStatementCacheKey(emailId, attachmentId, filename);
+      final Map<String, String> cache = await _getBankStatementCache();
+      
+      final bool isCached = cache.containsKey(cacheKey);
+      print('🏦 CACHE_SERVICE: Bank statement cache check for $cacheKey: $isCached');
+      
+      return isCached;
+    } catch (e) {
+      print('🏦 CACHE_SERVICE: ❌ Error checking bank statement cache: $e');
+      return false;
+    }
+  }
+  
+  // Get all cached bank statements as a map
+  Future<Map<String, String>> _getBankStatementCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final List<String>? cacheList = prefs.getStringList(_bankStatementCacheKey);
+      
+      if (cacheList == null || cacheList.isEmpty) {
+        return {};
+      }
+      
+      final Map<String, String> cache = {};
+      for (String jsonString in cacheList) {
+        try {
+          final Map<String, dynamic> data = jsonDecode(jsonString);
+          final String cacheKey = data['cache_key'];
+          cache[cacheKey] = jsonString;
+        } catch (e) {
+          print('🏦 CACHE_SERVICE: ⚠️ Skipping invalid bank statement cache entry: $e');
+        }
+      }
+      
+      return cache;
+    } catch (e) {
+      print('🏦 CACHE_SERVICE: ❌ Error getting bank statement cache: $e');
+      return {};
+    }
+  }
+  
+  // Clear bank statement cache
+  Future<bool> clearBankStatementCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_bankStatementCacheKey);
+      print('🏦 CACHE_SERVICE: Bank statement cache cleared');
+      return true;
+    } catch (e) {
+      print('🏦 CACHE_SERVICE: ❌ Error clearing bank statement cache: $e');
+      return false;
+    }
+  }
+  
+  // Clear all caches (both SMS and bank statements)
+  Future<bool> clearAllCaches() async {
+    try {
+      final smsResult = await clearCache();
+      final bankResult = await clearBankStatementCache();
+      
+      print('🏦 CACHE_SERVICE: All caches cleared - SMS: $smsResult, Bank: $bankResult');
+      return smsResult && bankResult;
+    } catch (e) {
+      print('🏦 CACHE_SERVICE: ❌ Error clearing all caches: $e');
+      return false;
     }
   }
 }

@@ -5,10 +5,12 @@ import 'package:http/http.dart' as http;
 import '../models/bank_transaction.dart';
 import '../models/analysis_result.dart';
 import '../config/bank_statement_config.dart';
+import 'cache_service.dart';
 
 class BankGeminiService {
   final String apiKey = BankStatementConfig.geminiApiKey;
   final String baseUrl = BankStatementConfig.geminiBaseUrl;
+  final CacheService _cacheService = CacheService();
 
   BankGeminiService();
 
@@ -51,7 +53,46 @@ class BankGeminiService {
     throw lastException ?? Exception("Failed after $retries retries");
   }
 
-  Future<AnalysisResult> processStatement(Uint8List pdfData, String prompt, String model) async {
+  Future<AnalysisResult> processStatement(
+    Uint8List pdfData, 
+    String prompt, 
+    String model, {
+    String? emailId,
+    String? attachmentId,
+    String? filename,
+    Function(String)? onProgress,
+  }) async {
+    
+    // Check cache first if we have the required identifiers
+    if (emailId != null && attachmentId != null && filename != null) {
+      print("🏦 BANK_GEMINI_SERVICE: Checking cache for statement: $filename");
+      onProgress?.call('Checking cache...');
+      
+      try {
+        final cachedResult = await _cacheService.getCachedBankStatementResult(
+          emailId: emailId,
+          attachmentId: attachmentId,
+          filename: filename,
+        );
+        
+        if (cachedResult != null) {
+          print("🏦 BANK_GEMINI_SERVICE: ✅ Found cached result with ${cachedResult.transactions.length} transactions");
+          onProgress?.call('Loading cached results...');
+          // Add a small delay to show the cache loading message
+          await Future.delayed(const Duration(milliseconds: 500));
+          return cachedResult;
+        } else {
+          print("🏦 BANK_GEMINI_SERVICE: No cached result found, proceeding with Gemini API");
+        }
+      } catch (e) {
+        print("🏦 BANK_GEMINI_SERVICE: ⚠️ Error checking cache: $e, proceeding with Gemini API");
+      }
+    } else {
+      print("🏦 BANK_GEMINI_SERVICE: Missing cache identifiers, proceeding directly with Gemini API");
+    }
+    
+    onProgress?.call('Analyzing transactions with AI...');
+    
     final url = '$baseUrl/models/$model:generateContent?key=$apiKey';
 
     print("--- PROMPT SENT TO GEMINI API ---");
@@ -130,7 +171,33 @@ class BankGeminiService {
               final transactions = decodedJson
                   .map((item) => BankTransaction.fromJson(item))
                   .toList();
-              return AnalysisResult(transactions: transactions, usageMetadata: usageMetadata);
+              
+              final result = AnalysisResult(transactions: transactions, usageMetadata: usageMetadata);
+              
+              // Cache the result if we have the required identifiers
+              if (emailId != null && attachmentId != null && filename != null) {
+                print("🏦 BANK_GEMINI_SERVICE: Saving result to cache with ${transactions.length} transactions");
+                try {
+                  final cacheResult = await _cacheService.saveBankStatementResult(
+                    emailId: emailId,
+                    attachmentId: attachmentId,
+                    filename: filename,
+                    result: result,
+                  );
+                  
+                  if (cacheResult) {
+                    print("🏦 BANK_GEMINI_SERVICE: ✅ Successfully cached result");
+                  } else {
+                    print("🏦 BANK_GEMINI_SERVICE: ⚠️ Failed to cache result");
+                  }
+                } catch (e) {
+                  print("🏦 BANK_GEMINI_SERVICE: ❌ Error caching result: $e");
+                }
+              } else {
+                print("🏦 BANK_GEMINI_SERVICE: Missing cache identifiers, skipping cache save");
+              }
+              
+              return result;
             }
           }
           throw Exception('Failed to parse response from Gemini API. The response was not a valid JSON array.');

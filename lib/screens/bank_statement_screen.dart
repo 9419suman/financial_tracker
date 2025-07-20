@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../models/email_message.dart';
-import '../models/bank_transaction.dart';
 import '../services/bank_auth_service.dart';
 import '../services/bank_gmail_service.dart';
 import '../services/bank_gemini_service.dart';
 import '../services/pdf_decryption_service.dart';
 import '../services/pdf_decryptor.dart';
+import '../services/cache_service.dart';
 import '../config/bank_statement_config.dart';
 import 'bank_transaction_results_screen.dart';
 
@@ -22,6 +22,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
   final BankAuthService _authService = BankAuthService();
   late final BankGmailService _gmailService;
   final BankGeminiService _geminiService = BankGeminiService();
+  final CacheService _cacheService = CacheService();
   
   List<EmailMessage> _emails = [];
   bool _isLoading = true;
@@ -145,15 +146,19 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
         }
       }
 
-      setState(() {
-        _processingMessage = 'Analyzing transactions with AI...';
-      });
-
-      // Process with Gemini
+      // Process with Gemini (now with caching support and progress callback)
       final result = await _geminiService.processStatement(
         dataToAnalyze,
         BankStatementConfig.geminiPrompt,
         BankStatementConfig.geminiModel,
+        emailId: email.id,
+        attachmentId: attachment.id,
+        filename: attachment.filename,
+        onProgress: (message) {
+          setState(() {
+            _processingMessage = message;
+          });
+        },
       );
 
       setState(() {
@@ -216,11 +221,43 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          if (_isSignedIn)
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: _signOut,
+          if (_isSignedIn) ...[
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) async {
+                switch (value) {
+                  case 'clear_cache':
+                    await _clearBankStatementCache();
+                    break;
+                  case 'logout':
+                    await _signOut();
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'clear_cache',
+                  child: Row(
+                    children: [
+                      Icon(Icons.clear_all),
+                      SizedBox(width: 8),
+                      Text('Clear Cache'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'logout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout),
+                      SizedBox(width: 8),
+                      Text('Sign Out'),
+                    ],
+                  ),
+                ),
+              ],
             ),
+          ],
         ],
       ),
       body: _buildBody(),
@@ -502,7 +539,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              ...email.attachments.map((attachment) => _buildAttachmentTile(email, attachment)),
+              ...email.attachments.map((attachment) => _buildAttachmentItem(email, attachment)),
             ],
           ],
         ),
@@ -510,9 +547,9 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
     );
   }
 
-  Widget _buildAttachmentTile(EmailMessage email, Attachment attachment) {
+  Widget _buildAttachmentItem(EmailMessage email, Attachment attachment) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.grey[50],
@@ -548,21 +585,101 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
               ],
             ),
           ),
-          ElevatedButton.icon(
-            onPressed: () => _processAttachment(email, attachment),
-            icon: const Icon(Icons.analytics, size: 16),
-            label: const Text('Parse'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
+          FutureBuilder<bool>(
+            future: _cacheService.isBankStatementCached(
+              emailId: email.id,
+              attachmentId: attachment.id,
+              filename: attachment.filename,
             ),
+            builder: (context, snapshot) {
+              final isCached = snapshot.data ?? false;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isCached) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Cached',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.green[700],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  ElevatedButton.icon(
+                    onPressed: () => _processAttachment(email, attachment),
+                    icon: Icon(isCached ? Icons.cached : Icons.analytics, size: 16),
+                    label: Text(isCached ? 'View' : 'Parse'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
     );
+  }
+
+  // Clear bank statement cache
+  Future<void> _clearBankStatementCache() async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Clearing cache...'),
+            ],
+          ),
+        ),
+      );
+
+      final result = await _cacheService.clearBankStatementCache();
+      
+      Navigator.pop(context); // Close loading dialog
+      
+      if (result) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bank statement cache cleared successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to clear cache'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      Navigator.pop(context); // Close loading dialog if still open
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error clearing cache: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 } 
