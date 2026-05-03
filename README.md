@@ -21,6 +21,7 @@ A Flutter application designed to read and display SMS messages with a focus on 
 ### Installation
 
 1. Clone this repository
+2. Install flutter: ! brew install flutter
 2. Run `flutter pub get` to install dependencies
 3. Connect your Android device (ensure USB debugging is enabled)
 4. Run `flutter run` to install and launch the app
@@ -59,3 +60,20 @@ If you're coming from Python, here are some key concepts to understand:
 ## License
 
 This project is for educational purposes.
+
+
+## ENV Format
+
+# Gemini AI Configuration
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_BASE_URL=
+GEMINI_MODEL=gemini-2.5-flash
+
+# Google OAuth (for Gmail / Bank Statement parsing)
+GOOGLE_SERVER_CLIENT_ID=your_google_oauth_client_id_here
+
+# Your bank account numbers (comma-separated, used to identify self-transfers)
+MY_ACCOUNTS=
+
+# Known parties (JSON format - maps account/UPI IDs to display names)
+KNOWN_PARTIES={"9999999999@upi":"John","XXXXXXXXXX":"Self Savings"}
