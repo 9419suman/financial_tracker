@@ -140,7 +140,7 @@ class BankGeminiService {
     };
 
     try {
-      print("Sending request to Gemini API: $url");
+      print("Sending request to Gemini API: $baseUrl/models/$model:generateContent");
       
       final response = await _makeApiRequest(url, requestBody);
 

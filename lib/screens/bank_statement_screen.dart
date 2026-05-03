@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../models/email_message.dart';
+import '../models/bank_config.dart';
+import '../models/user_profile.dart';
 import '../services/bank_auth_service.dart';
 import '../services/bank_gmail_service.dart';
 import '../services/bank_gemini_service.dart';
-import '../services/pdf_decryption_service.dart';
+import '../services/deepseek_service.dart';
+import '../services/password_cache_service.dart';
 import '../services/pdf_decryptor.dart';
 import '../services/cache_service.dart';
 import '../config/bank_statement_config.dart';
+import 'bank_settings_screen.dart';
 import 'bank_transaction_results_screen.dart';
 
 class BankStatementScreen extends StatefulWidget {
@@ -22,239 +26,252 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
   final BankAuthService _authService = BankAuthService();
   late final BankGmailService _gmailService;
   final BankGeminiService _geminiService = BankGeminiService();
+  final DeepSeekService _deepSeekService = DeepSeekService();
   final CacheService _cacheService = CacheService();
-  
-  List<EmailMessage> _emails = [];
+
+  UserProfile _profile = UserProfile.defaultProfile;
+
   bool _isLoading = true;
   bool _isSignedIn = false;
-  String _error = '';
   bool _isProcessing = false;
   String _processingMessage = '';
+  String _error = '';
+
+  int _selectedMonths = 6;
+  final Set<String> _selectedBankIds = {'hdfc', 'rbl'};
+
+  List<EmailMessage> _emails = [];
+  bool _hasFetched = false;
+
+  static const _timeWindows = [1, 3, 6, 12];
 
   @override
   void initState() {
     super.initState();
     _gmailService = BankGmailService(_authService);
-    _checkSignInStatus();
+    _loadProfileAndCheckSignIn();
   }
 
-  Future<void> _checkSignInStatus() async {
+  Future<void> _loadProfileAndCheckSignIn() async {
+    _profile = await UserProfile.load();
     try {
       final isSignedIn = await _authService.isSignedIn();
       setState(() {
         _isSignedIn = isSignedIn;
         _isLoading = false;
       });
-      
-      if (isSignedIn) {
-        _loadEmails();
-      }
     } catch (e) {
       setState(() {
-        _error = 'Error checking sign-in status: $e';
+        _error = 'Error checking sign-in: $e';
         _isLoading = false;
       });
     }
   }
 
   Future<void> _signIn() async {
-    setState(() {
-      _isLoading = true;
-      _error = '';
-    });
-
+    setState(() { _isLoading = true; _error = ''; });
     try {
       final account = await _authService.signIn();
-      if (account != null) {
-        setState(() {
-          _isSignedIn = true;
-        });
-        _loadEmails();
-      } else {
-        setState(() {
-          _error = 'Sign-in failed. Please try again.';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
       setState(() {
-        _error = 'Error during sign-in: $e';
+        _isSignedIn = account != null;
+        _error = account == null ? 'Sign-in failed. Please try again.' : '';
         _isLoading = false;
       });
+    } catch (e) {
+      setState(() { _error = 'Error during sign-in: $e'; _isLoading = false; });
     }
   }
 
   Future<void> _signOut() async {
     await _authService.signOut();
-    setState(() {
-      _isSignedIn = false;
-      _emails = [];
-    });
+    setState(() { _isSignedIn = false; _emails = []; _hasFetched = false; });
   }
 
-  Future<void> _loadEmails() async {
-    setState(() {
-      _isLoading = true;
-      _error = '';
-    });
+  Future<void> _openSettings() async {
+    final updated = await Navigator.push<UserProfile>(
+      context,
+      MaterialPageRoute(builder: (_) => const BankSettingsScreen()),
+    );
+    if (updated != null) setState(() => _profile = updated);
+  }
 
+  Future<void> _fetchStatements() async {
+    if (_selectedBankIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one bank')),
+      );
+      return;
+    }
+    setState(() { _isLoading = true; _error = ''; _emails = []; });
     try {
-      final emails = await _gmailService.getBankStatements(maxResults: 20);
-      setState(() {
-        _emails = emails;
-        _isLoading = false;
-      });
+      final now = DateTime.now();
+      final after = DateTime(now.year, now.month - _selectedMonths, now.day);
+      final emails = await _gmailService.getBankStatements(
+        bankIds: _selectedBankIds.toList(),
+        after: after,
+        before: now,
+        maxResults: 50,
+      );
+      setState(() { _emails = emails; _isLoading = false; _hasFetched = true; });
     } catch (e) {
-      setState(() {
-        _error = 'Failed to load bank statements: $e';
-        _isLoading = false;
-      });
+      setState(() { _error = 'Failed to load statements: $e'; _isLoading = false; });
     }
   }
 
   Future<void> _processAttachment(EmailMessage email, Attachment attachment) async {
-    setState(() {
-      _isProcessing = true;
-      _processingMessage = 'Downloading attachment...';
-    });
+    setState(() { _isProcessing = true; _processingMessage = 'Downloading PDF...'; });
 
     try {
-      // Download the attachment
       final pdfData = await _gmailService.downloadAttachment(email.id, attachment.id);
-      if (pdfData == null) {
-        throw Exception('Failed to download attachment');
+      if (pdfData == null) throw Exception('Failed to download attachment');
+
+      setState(() => _processingMessage = 'Analyzing email (DeepSeek)...');
+
+      // ── DeepSeek: get password (cached or fresh LLM call) ──────────────────
+      final analysis = await _deepSeekService.analyzeEmail(
+        subject:  email.subject,
+        body:     email.body,
+        filename: attachment.filename,
+        profile:  _profile,
+      );
+
+      // ── Build ordered password list to try ─────────────────────────────────
+      final List<String> passwords;
+      if (analysis != null) {
+        passwords = analysis.passwordsToTry;
+      } else {
+        // Fallback: no LLM result — generate candidates directly
+        passwords = [
+          ..._profile.bankPasswords.values,
+          '${_profile.dd}${_profile.mm}${_profile.yyyy}',
+          '${_profile.dd}${_profile.mm}',
+          '',
+        ];
       }
 
-      setState(() {
-        _processingMessage = 'Processing PDF...';
-      });
+      setState(() => _processingMessage = 'Decrypting PDF...');
 
-      // Check if it's an HDFC statement that needs decryption
       var dataToAnalyze = pdfData;
-      if (PdfDecryptionService.isHdfcBankStatement(attachment.filename, email.sender)) {
-        setState(() {
-          _processingMessage = 'Decrypting PDF...';
-        });
-        
-        const password = PdfDecryptionService.defaultPassword;
-        final decryptedPdf = await PdfDecryptor.removePasswordFromPdf(pdfData, password);
-        
-        if (decryptedPdf != null) {
-          dataToAnalyze = decryptedPdf;
-        } else {
-          throw Exception('Failed to decrypt PDF');
+      String? usedPassword;
+
+      for (final pwd in passwords) {
+        final decrypted = await PdfDecryptor.removePasswordFromPdf(pdfData, pwd);
+        if (decrypted != null) {
+          dataToAnalyze = decrypted;
+          usedPassword = pwd;
+          print('✅ Decrypted with: "${pwd.isEmpty ? '(no password)' : pwd}"');
+          break;
         }
       }
 
-      // Process with Gemini (now with caching support and progress callback)
+      if (usedPassword == null) {
+        print('⚠️ All passwords failed — proceeding with original PDF');
+      }
+
+      setState(() => _processingMessage = 'Parsing transactions...');
+
       final result = await _geminiService.processStatement(
         dataToAnalyze,
         BankStatementConfig.geminiPrompt,
         BankStatementConfig.geminiModel,
-        emailId: email.id,
+        emailId:      email.id,
         attachmentId: attachment.id,
-        filename: attachment.filename,
-        onProgress: (message) {
-          setState(() {
-            _processingMessage = message;
-          });
-        },
+        filename:     attachment.filename,
+        onProgress:   (msg) => setState(() => _processingMessage = msg),
       );
 
-      setState(() {
-        _isProcessing = false;
-        _processingMessage = '';
-      });
+      setState(() { _isProcessing = false; _processingMessage = ''; });
 
       if (result.transactions.isNotEmpty) {
-        // Navigate to results screen
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => BankTransactionResultsScreen(
+            builder: (_) => BankTransactionResultsScreen(
               transactions: result.transactions,
-              email: email,
-              attachment: attachment,
+              email:        email,
+              attachment:   attachment,
             ),
           ),
         );
       } else {
-        _showErrorDialog('No transactions found in the statement');
+        _showError('No transactions found in the statement');
       }
     } catch (e) {
-      setState(() {
-        _isProcessing = false;
-        _processingMessage = '';
-      });
-      _showErrorDialog('Error processing statement: $e');
+      setState(() { _isProcessing = false; _processingMessage = ''; });
+      _showError('Error processing statement: $e');
     }
   }
 
-  void _showErrorDialog(String message) {
+  void _showError(String message) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (_) => AlertDialog(
         title: const Text('Error'),
         content: Text(message),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
         ],
       ),
     );
+  }
+
+  Future<void> _clearPasswordCache() async {
+    await PasswordCacheService.instance.clear();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password cache cleared'), backgroundColor: Colors.green),
+      );
+    }
+  }
+
+  Future<void> _clearCache() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(children: [
+          CircularProgressIndicator(), SizedBox(width: 16), Text('Clearing cache...'),
+        ]),
+      ),
+    );
+    final result = await _cacheService.clearBankStatementCache();
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(result ? 'Cache cleared' : 'Failed to clear cache'),
+      backgroundColor: result ? Colors.green : Colors.red,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Bank Statements',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
+        title: Text('Bank Statements',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           if (_isSignedIn) ...[
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: 'Profile & Settings',
+              onPressed: _openSettings,
+            ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
-              onSelected: (value) async {
-                switch (value) {
-                  case 'clear_cache':
-                    await _clearBankStatementCache();
-                    break;
-                  case 'logout':
-                    await _signOut();
-                    break;
-                }
+              onSelected: (v) async {
+                if (v == 'clear_cache') await _clearCache();
+                if (v == 'clear_pwd_cache') await _clearPasswordCache();
+                if (v == 'logout') await _signOut();
               },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'clear_cache',
-                  child: Row(
-                    children: [
-                      Icon(Icons.clear_all),
-                      SizedBox(width: 8),
-                      Text('Clear Cache'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'logout',
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout),
-                      SizedBox(width: 8),
-                      Text('Sign Out'),
-                    ],
-                  ),
-                ),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'clear_pwd_cache',
+                    child: Row(children: [Icon(Icons.lock_reset), SizedBox(width: 8), Text('Clear Password Cache')])),
+                PopupMenuItem(value: 'clear_cache',
+                    child: Row(children: [Icon(Icons.clear_all), SizedBox(width: 8), Text('Clear Statement Cache')])),
+                PopupMenuItem(value: 'logout',
+                    child: Row(children: [Icon(Icons.logout), SizedBox(width: 8), Text('Sign Out')])),
               ],
             ),
           ],
@@ -265,56 +282,29 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    if (!_isSignedIn) {
-      return _buildSignInView();
-    }
-
-    if (_error.isNotEmpty) {
-      return _buildErrorView();
-    }
-
-    if (_isProcessing) {
-      return _buildProcessingView();
-    }
-
-    return _buildEmailList();
+    if (_isLoading)    return const Center(child: CircularProgressIndicator());
+    if (_isProcessing) return _buildProcessingView();
+    if (!_isSignedIn)  return _buildSignInView();
+    return _buildMainView();
   }
 
   Widget _buildSignInView() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.account_balance,
-              size: 80,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+            Icon(Icons.account_balance, size: 80, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 24),
+            Text('Bank Statement Parser',
+                style: GoogleFonts.poppins(
+                    fontSize: 24, fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary)),
+            const SizedBox(height: 12),
             Text(
-              'Bank Statement Parser',
-              style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Sign in with Google to access your bank statements from Gmail and automatically parse transactions.',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
+              'Sign in with Google to fetch bank statements from Gmail and parse transactions.',
+              style: GoogleFonts.poppins(fontSize: 15, color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -326,9 +316,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
             if (_error.isNotEmpty) ...[
@@ -340,10 +328,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.red.shade300),
                 ),
-                child: Text(
-                  _error,
-                  style: TextStyle(color: Colors.red.shade700),
-                ),
+                child: Text(_error, style: TextStyle(color: Colors.red.shade700)),
               ),
             ],
           ],
@@ -352,78 +337,118 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
     );
   }
 
-  Widget _buildErrorView() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 80,
-              color: Colors.red.shade400,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Error',
-              style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.red.shade600,
+  Widget _buildMainView() {
+    return Column(
+      children: [
+        // Profile banner
+        Container(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.07),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              const Icon(Icons.person_outline, size: 16),
+              const SizedBox(width: 6),
+              Text(_profile.fullName,
+                  style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+              const Spacer(),
+              TextButton(
+                onPressed: _openSettings,
+                style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+                child: Text('Edit',
+                    style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.primary)),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _error,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _loadEmails,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
+            ],
+          ),
+        ),
+        _buildFiltersPanel(),
+        Expanded(child: _hasFetched ? _buildEmailList() : _buildPromptFetch()),
+      ],
+    );
+  }
+
+  Widget _buildFiltersPanel() {
+    return Container(
+      color: Colors.grey[50],
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Time Window',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(height: 8),
+          Row(
+            children: _timeWindows.map((months) {
+              final label = months == 12 ? '1 Year' : '$months Month${months > 1 ? 's' : ''}';
+              final selected = _selectedMonths == months;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(label, style: GoogleFonts.poppins(fontSize: 12)),
+                  selected: selected,
+                  onSelected: (_) => setState(() => _selectedMonths = months),
+                  selectedColor: Theme.of(context).colorScheme.primary,
+                  labelStyle: TextStyle(color: selected ? Colors.white : Colors.black87),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+          Text('Select Banks',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: BankConfig.all.map((bank) {
+              final selected = _selectedBankIds.contains(bank.id);
+              return FilterChip(
+                label: Text(bank.displayName, style: GoogleFonts.poppins(fontSize: 12)),
+                selected: selected,
+                onSelected: (val) => setState(() {
+                  if (val) _selectedBankIds.add(bank.id);
+                  else _selectedBankIds.remove(bank.id);
+                }),
+                selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                checkmarkColor: Theme.of(context).colorScheme.primary,
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _fetchStatements,
+              icon: const Icon(Icons.search),
+              label: Text(
+                  'Fetch Statements${_selectedBankIds.isNotEmpty ? ' (${_selectedBankIds.length} bank${_selectedBankIds.length > 1 ? 's' : ''})' : ''}'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildProcessingView() {
+  Widget _buildPromptFetch() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 24),
-            Text(
-              'Processing...',
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
+            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            Text(
-              _processingMessage,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text('Select banks and tap Fetch Statements',
+                style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[600]),
+                textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -434,31 +459,19 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
     if (_emails.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.inbox_outlined,
-                size: 80,
-                color: Colors.grey[400],
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'No Bank Statements Found',
-                style: GoogleFonts.poppins(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[600],
-                ),
-              ),
+              Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
               const SizedBox(height: 16),
+              Text('No bank statements found',
+                  style: GoogleFonts.poppins(
+                      fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[600])),
+              const SizedBox(height: 8),
               Text(
-                'No HDFC bank statements were found in your Gmail.',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  color: Colors.grey[500],
-                ),
+                'No PDF statements found in the last $_selectedMonths month${_selectedMonths > 1 ? 's' : ''}.',
+                style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[500]),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -466,27 +479,22 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
         ),
       );
     }
-
     return RefreshIndicator(
-      onRefresh: _loadEmails,
+      onRefresh: _fetchStatements,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: _emails.length,
-        itemBuilder: (context, index) {
-          final email = _emails[index];
-          return _buildEmailCard(email);
-        },
+        itemBuilder: (_, i) => _buildEmailCard(_emails[i]),
       ),
     );
   }
 
   Widget _buildEmailCard(EmailMessage email) {
+    final bank = BankConfig.detectFromSender(email.sender);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -494,52 +502,37 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
           children: [
             Row(
               children: [
-                Icon(
-                  Icons.email,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 20,
-                ),
+                Icon(Icons.account_balance,
+                    color: Theme.of(context).colorScheme.primary, size: 18),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    email.subject,
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
+                if (bank != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
                     ),
+                    child: Text(bank.displayName,
+                        style: GoogleFonts.poppins(
+                            fontSize: 11, fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.primary)),
                   ),
-                ),
+                const Spacer(),
+                Text(DateFormat('dd MMM yyyy').format(email.date),
+                    style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600])),
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              'From: ${email.sender}',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
+            Text(email.subject,
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 14)),
             const SizedBox(height: 4),
-            Text(
-              'Date: ${DateFormat('MMM dd, yyyy - hh:mm a').format(email.date)}',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
+            Text('From: ${email.sender}',
+                style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[500])),
             if (email.attachments.isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Divider(),
-              const SizedBox(height: 8),
-              Text(
-                'Attachments:',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...email.attachments.map((attachment) => _buildAttachmentItem(email, attachment)),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              ...email.attachments.map((a) => _buildAttachmentRow(email, a)),
             ],
           ],
         ),
@@ -547,139 +540,118 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
     );
   }
 
-  Widget _buildAttachmentItem(EmailMessage email, Attachment attachment) {
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.picture_as_pdf,
-            color: Colors.red[400],
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  attachment.filename,
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  '${(attachment.size / 1024).toStringAsFixed(1)} KB',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          FutureBuilder<bool>(
-            future: _cacheService.isBankStatementCached(
-              emailId: email.id,
-              attachmentId: attachment.id,
-              filename: attachment.filename,
-            ),
-            builder: (context, snapshot) {
-              final isCached = snapshot.data ?? false;
-              return Row(
-                mainAxisSize: MainAxisSize.min,
+  Widget _buildAttachmentRow(EmailMessage email, Attachment attachment) {
+    return FutureBuilder<PdfPasswordCache?>(
+      future: PasswordCacheService.instance.get(attachment.filename),
+      builder: (_, snap) {
+        final cached = snap.data;
+        final isCached = cached != null;
+        final isStatementCachedFuture = _cacheService.isBankStatementCached(
+          emailId: email.id, attachmentId: attachment.id, filename: attachment.filename,
+        );
+        return FutureBuilder<bool>(
+          future: isStatementCachedFuture,
+          builder: (_, txSnap) {
+            final txCached = txSnap.data ?? false;
+            return Container(
+              margin: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Row(
                 children: [
-                  if (isCached) ...[
+                  Icon(Icons.picture_as_pdf, color: Colors.red[400], size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(attachment.filename,
+                            style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w500, fontSize: 13)),
+                        Row(
+                          children: [
+                            Text('${(attachment.size / 1024).toStringAsFixed(1)} KB',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 11, color: Colors.grey[600])),
+                            if (isCached) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text('pwd cached',
+                                    style: GoogleFonts.poppins(
+                                        fontSize: 9,
+                                        color: Colors.blue[700],
+                                        fontWeight: FontWeight.w500)),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (txCached)
                     Container(
+                      margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.green.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(
-                        'Cached',
-                        style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.green[700],
-                        ),
-                      ),
+                      child: Text('Cached',
+                          style: GoogleFonts.poppins(
+                              fontSize: 10, fontWeight: FontWeight.w500,
+                              color: Colors.green[700])),
                     ),
-                    const SizedBox(width: 8),
-                  ],
                   ElevatedButton.icon(
                     onPressed: () => _processAttachment(email, attachment),
-                    icon: Icon(isCached ? Icons.cached : Icons.analytics, size: 16),
-                    label: Text(isCached ? 'View' : 'Parse'),
+                    icon: Icon(txCached ? Icons.cached : Icons.analytics, size: 14),
+                    label: Text(txCached ? 'View' : 'Parse',
+                        style: GoogleFonts.poppins(fontSize: 12)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
                   ),
                 ],
-              );
-            },
-          ),
-        ],
-      ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
-  // Clear bank statement cache
-  Future<void> _clearBankStatementCache() async {
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Clearing cache...'),
-            ],
-          ),
+  Widget _buildProcessingView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 24),
+            Text('Processing...',
+                style: GoogleFonts.poppins(
+                    fontSize: 20, fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary)),
+            const SizedBox(height: 12),
+            Text(_processingMessage,
+                style: GoogleFonts.poppins(fontSize: 15, color: Colors.grey[600]),
+                textAlign: TextAlign.center),
+          ],
         ),
-      );
-
-      final result = await _cacheService.clearBankStatementCache();
-      
-      Navigator.pop(context); // Close loading dialog
-      
-      if (result) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bank statement cache cleared successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to clear cache'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      Navigator.pop(context); // Close loading dialog if still open
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error clearing cache: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+      ),
+    );
   }
-} 
+}

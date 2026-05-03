@@ -46,3 +46,13 @@ app.*.map.json
 
 # environment variables
 .env
+
+# Logs and test outputs (may contain API keys or personal data)
+logs.txt
+*.txt.log
+password_results.json
+password_cache.json
+gmail_token.json
+client_secret.json
+google-services.json
+email_dump/

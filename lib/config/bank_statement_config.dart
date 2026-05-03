@@ -1,15 +1,19 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class BankStatementConfig {
-  // Gemini API Configuration - using the same API key as SMS parsing
+  // ── Gemini (transaction parsing) ────────────────────────────────────────────
   static String get geminiApiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
-  static const String geminiModel = 'gemini-1.5-flash';
-  static const String geminiBaseUrl = 'https://generativelanguage.googleapis.com/v1beta';
-  
-  // Google Sign-In Configuration
+  static String get geminiModel => dotenv.env['GEMINI_MODEL'] ?? 'gemini-2.0-flash';
+  static String get geminiBaseUrl => dotenv.env['GEMINI_BASE_URL'] ?? 'https://generativelanguage.googleapis.com/v1beta';
+
+  // ── DeepSeek (PDF password + statement classification) ──────────────────────
+  static String get deepSeekApiKey => dotenv.env['DEEPSEEK_API_KEY'] ?? '';
+  static String get deepSeekModel => dotenv.env['DEEPSEEK_MODEL'] ?? 'deepseek-v4-flash';
+
+  // ── Google Sign-In ───────────────────────────────────────────────────────────
   static String get googleServerClientId => dotenv.env['GOOGLE_SERVER_CLIENT_ID'] ?? '';
-  
-  // Bank Statement Prompt
+
+
   static const String geminiPrompt = '''Categorize each transaction and extract structured data as a list of transactions with: date, amount, type (credit or debit), to_account, category, and description. Rules:
     1. I have these accounts. For these accounts the category would be "Internal Transfer".
         b. Baba RBL: account number - 309020687546

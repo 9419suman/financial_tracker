@@ -1,48 +1,79 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:path_provider/path_provider.dart';
+import '../models/user_profile.dart';
 
 class PdfDecryptionService {
-  // HDFC Bank statement password
-  static const String defaultPassword = '114210210';
+  // Returns ordered list of password candidates to try for a given bank.
+  // First candidate is the most likely correct one.
+  static List<String> getPasswordCandidates(String bankId, UserProfile profile) {
+    final first4 = profile.firstName.length >= 4
+        ? profile.firstName.substring(0, 4).toUpperCase()
+        : profile.firstName.toUpperCase();
 
-  // Save PDF data to a file so it can be opened
+    final ddmm = '${profile.dd}${profile.mm}';
+    final ddmmyyyy = '${profile.dd}${profile.mm}${profile.yyyy}';
+    final ddmmyy = '${profile.dd}${profile.mm}${profile.yy}';
+    final pan = profile.pan.toUpperCase();
+    final panFirst5 = pan.length >= 5 ? pan.substring(0, 5) : pan;
+
+    switch (bankId) {
+      case 'hdfc':
+        // HDFC: password is Customer ID (stored in .env)
+        final customerId = dotenv.env['HDFC_PDF_PASSWORD'] ?? '';
+        return [
+          if (customerId.isNotEmpty) customerId,
+          '$first4$ddmm',
+          ddmmyyyy,
+        ];
+
+      case 'sbi':
+        return [ddmmyyyy, ddmmyy, ddmm];
+
+      case 'icici':
+        return [ddmmyyyy, ddmmyy, '$first4$ddmm'];
+
+      case 'axis':
+        return [ddmmyyyy, ddmmyy, '$first4$ddmm'];
+
+      case 'kotak':
+        return [ddmmyyyy, ddmmyy, '$first4$ddmm'];
+
+      case 'rbl':
+        return ['$panFirst5$ddmm', ddmmyyyy, '$first4$ddmm'];
+
+      case 'idfc':
+        return [
+          '${profile.firstName.toLowerCase()}$ddmmyyyy',
+          ddmmyyyy,
+          '$first4$ddmm',
+        ];
+
+      default:
+        return [ddmmyyyy, '$first4$ddmm', ddmmyy];
+    }
+  }
+
+  static bool isHdfcBankStatement(String filename, String sender) {
+    return sender.toLowerCase().contains('hdfc') &&
+        filename.toLowerCase().endsWith('.pdf');
+  }
+
   static Future<String?> savePdfToFile({
     required Uint8List pdfData,
     required String filename,
   }) async {
     try {
-      print('Saving PDF to file: $filename (${pdfData.length} bytes)');
-      
-      // Get temporary directory
       final tempDir = await getTemporaryDirectory();
       final safeName = filename.replaceAll(' ', '_').replaceAll('/', '_');
-      final filePath = '${tempDir.path}/${safeName}_${DateTime.now().millisecondsSinceEpoch}.pdf';
-      
-      print('PDF will be saved to: $filePath');
-      
-      // Write data to file
+      final filePath =
+          '${tempDir.path}/${safeName}_${DateTime.now().millisecondsSinceEpoch}.pdf';
       final file = File(filePath);
       await file.writeAsBytes(pdfData);
-      
-      print('PDF saved successfully');
       return filePath;
     } catch (e) {
-      print('Error saving PDF to file: $e');
       return null;
     }
   }
-  
-  // Get the password for bank statement PDFs
-  static String getDefaultPassword() {
-    return defaultPassword;
-  }
-  
-  // Check if a filename is likely a PDF from HDFC Bank
-  static bool isHdfcBankStatement(String filename, String sender) {
-    final isFromHdfc = sender.toLowerCase().contains('hdfc');
-    final isPdfFile = filename.toLowerCase().endsWith('.pdf');
-    
-    return isFromHdfc && isPdfFile;
-  }
-} 
+}

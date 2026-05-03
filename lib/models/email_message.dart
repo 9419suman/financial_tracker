@@ -3,6 +3,7 @@ class EmailMessage {
   final String sender;
   final String subject;
   final String snippet;
+  final String body; // full plain-text body for LLM analysis
   final DateTime date;
   final List<Attachment> attachments;
   final bool hasPdfAttachment;
@@ -12,6 +13,7 @@ class EmailMessage {
     required this.sender,
     required this.subject,
     required this.snippet,
+    this.body = '',
     required this.date,
     this.attachments = const [],
     this.hasPdfAttachment = false,
@@ -35,4 +37,4 @@ class Attachment {
       mimeType == 'application/pdf' ||
       (filename.toLowerCase().endsWith('.pdf') &&
           (mimeType == 'application/octet-stream' || mimeType.isEmpty));
-} 
+}
