@@ -1,0 +1,59 @@
+lipkart account...)
+I/flutter (21297): 💾 CACHE_SERVICE: Retrieved cached message ID: 3580 (Preview: Hi, a payment of Rs. 100 is up...)
+I/flutter (21297): 💾 CACHE_SERVICE: Retrieved cached message ID: 3579 (Preview: Hi, a payment of Rs. 100 is up...)
+I/flutter (21297): 💾 CACHE_SERVICE: Retrieved cached message ID: 3578 (Preview: Hi, a payment of Rs. 100 is up...)
+I/flutter (21297): 💾 CACHE_SERVICE: Retrieved cached message ID: 3577 (Preview: Hi, a payment of Rs. 100 is up...)
+I/flutter (21297): 💾 CACHE_SERVICE: Retrieved 5 message dictionaries from cache    
+I/flutter (21297): 📱 SMS_SERVICE: ✅ Cache now contains 5 messages total (was 0 before)
+I/flutter (21297): 📱 SMS_SERVICE: ✅ Returning 5 total processed messages
+I/flutter (21297): 📅 MESSAGE_PROVIDER: Processed 5 messages with Gemini
+I/flutter (21297): 📅 MESSAGE_PROVIDER: Main messages sorted by date (newest first) 
+I/flutter (21297): 🔍 MESSAGE_PROVIDER: Applying filters - Search: '', Filter: MessageFilter.all
+I/flutter (21297): 🔍 MESSAGE_PROVIDER: Starting with 5 messages
+I/flutter (21297): 🔍 MESSAGE_PROVIDER: Messages sorted by date (newest first)      
+I/flutter (21297): 🔍 MESSAGE_PROVIDER: Final filtered messages count: 5
+W/nancial_tracker(21297): userfaultfd: MOVE ioctl seems unsupported: Connection timed out
+W/FinalizerDaemon(21297): type=1400 audit(0.0:13499): avc:  denied  { getopt } for  path="/dev/socket/usap_pool_primary" scontext=u:r:untrusted_app:s0:c232,c257,c512,c768 tcontext=u:r:zygote:s0 tclass=unix_stream_socket permissive=0 app=com.example.financial_tracker
+I/flutter (21297): 📅 MESSAGE_PROVIDER: Loading messages with date filter: Start: 2026-05-03 00:00:00.000, End: 2026-05-03 00:00:00.000
+I/flutter (21297): 📅 MESSAGE_PROVIDER: Retrieved 2739 raw messages
+I/flutter (21297): 📅 MESSAGE_PROVIDER: After date filter: 5 messages remaining
+I/flutter (21297): 📱 SMS_SERVICE: Starting processing for 5 messages
+I/flutter (21297): 💾 CACHE_SERVICE: Found 5 cached message entries
+I/flutter (21297): 💾 CACHE_SERVICE: Retrieved cached message ID: 3581 (Preview: LOGIN to your Flipkart account...)
+I/flutter (21297): 💾 CACHE_SERVICE: Retrieved cached message ID: 3580 (Preview: Hi, a payment of Rs. 100 is up...)
+I/flutter (21297): 💾 CACHE_SERVICE: Retrieved cached message ID: 3579 (Preview: Hi, a payment of Rs. 100 is up...)
+I/flutter (21297): 💾 CACHE_SERVICE: Retrieved cached message ID: 3578 (Preview: Hi, a payment of Rs. 100 is up...)
+I/flutter (21297): 💾 CACHE_SERVICE: Retrieved cached message ID: 3577 (Preview: Hi, a payment of Rs. 100 is up...)
+I/flutter (21297): 💾 CACHE_SERVICE: Retrieved 5 message dictionaries from cache    
+I/flutter (21297): 📱 SMS_SERVICE: Retrieved 5 message dictionaries from cache      
+I/flutter (21297): 📱 SMS_SERVICE: Checking if message ID 3581 is in cache (Preview: LOGIN to your Flipkart account...)
+I/flutter (21297): 📱 SMS_SERVICE: Found message 3581 in cache
+I/flutter (21297): 📱 SMS_SERVICE: Checking if message ID 3580 is in cache (Preview: Hi, a payment of Rs. 100 is up...)
+I/flutter (21297): 📱 SMS_SERVICE: Found message 3580 in cache
+I/flutter (21297): 📱 SMS_SERVICE: Checking if message ID 3579 is in cache (Preview: Hi, a payment of Rs. 100 is up...)
+I/flutter (21297): 📱 SMS_SERVICE: Found message 3579 in cache
+I/flutter (21297): 📱 SMS_SERVICE: Checking if message ID 3578 is in cache (Preview: Hi, a payment of Rs. 100 is up...)
+I/flutter (21297): 📱 SMS_SERVICE: Found message 3578 in cache
+I/flutter (21297): 📱 SMS_SERVICE: Checking if message ID 3577 is in cache (Preview: Hi, a payment of Rs. 100 is up...)
+I/flutter (21297): 📱 SMS_SERVICE: Found message 3577 in cache
+I/flutter (21297): 📱 SMS_SERVICE: 5 messages from cache, 0 messages to process     
+I/flutter (21297): 📱 SMS_SERVICE: All messages found in cache, no Gemini API call needed
+I/flutter (21297): 📅 MESSAGE_PROVIDER: Processed 5 messages with Gemini
+I/flutter (21297): 📅 MESSAGE_PROVIDER: Main messages sorted by date (newest first) 
+I/flutter (21297): 🔍 MESSAGE_PROVIDER: Applying filters - Search: '', Filter: MessageFilter.all
+I/flutter (21297): 🔍 MESSAGE_PROVIDER: Starting with 5 messages
+I/flutter (21297): 🔍 MESSAGE_PROVIDER: Messages sorted by date (newest first)      
+I/flutter (21297): 🔍 MESSAGE_PROVIDER: Final filtered messages count: 5
+W/WindowOnBackDispatcher(21297): OnBackInvokedCallback is not enabled for the application.
+W/WindowOnBackDispatcher(21297): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+I/ContentCaptureHelper(21297): Setting logging level to OFF
+D/NtViewRootImpl(21297): mPopUpViewOffsets: offset=(0.0, 0.0), scale=(1.0, 1.0)
+D/NtViewRootImpl(21297): mPopUpViewOffsets: offset=(0.0, 0.0), scale=(1.0, 1.0)
+D/InsetsController(21297): hide(ime(), fromIme=false)
+I/ImeTracker(21297): com.example.financial_tracker:c504c448: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+D/VRI[SignInHubActivity](21297): visibilityChanged oldVisibility=true newVisibility=false
+W/WindowOnBackDispatcher(21297): sendCancelIfRunning: isInProgress=false callback=android.view.ViewRootImpl$$ExternalSyntheticLambda13@9e681bb
+D/ViewRootImpl(21297): Skipping stats log for color mode
+D/NtViewRootImpl(21297): mPopUpViewOffsets: offset=(0.0, 0.0), scale=(1.0, 1.0)
+D/InsetsController(21297): hide(ime(), fromIme=false)
+I/ImeTracker(21297): com.example.financial_tracker:96a629d9: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
